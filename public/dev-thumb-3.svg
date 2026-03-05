@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="250" viewBox="0 0 400 250">
+  <defs>
+    <linearGradient id="bg3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a192f"/>
+      <stop offset="100%" style="stop-color:#112240"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="250" fill="url(#bg3)"/>
+  <!-- Ballot box -->
+  <rect x="160" y="80" width="80" height="70" rx="4" fill="none" stroke="#00FF00" stroke-width="2" opacity="0.7"/>
+  <rect x="175" y="75" width="50" height="10" rx="2" fill="#00FF00" opacity="0.3"/>
+  <line x1="185" y1="90" x2="215" y2="90" stroke="#00FF00" stroke-width="1" opacity="0.4"/>
+  <!-- Vote paper -->
+  <rect x="190" y="60" width="20" height="25" rx="1" fill="#00FF00" opacity="0.15" stroke="#00FF00" stroke-width="1"/>
+  <line x1="195" y1="68" x2="205" y2="68" stroke="#00FF00" stroke-width="1" opacity="0.5"/>
+  <line x1="195" y1="73" x2="203" y2="73" stroke="#00FF00" stroke-width="1" opacity="0.3"/>
+  <!-- Blockchain nodes around -->
+  <circle cx="100" cy="90" r="8" fill="none" stroke="#4FC3F7" stroke-width="1.5" opacity="0.6"/>
+  <circle cx="300" cy="90" r="8" fill="none" stroke="#4FC3F7" stroke-width="1.5" opacity="0.6"/>
+  <circle cx="100" cy="170" r="8" fill="none" stroke="#4FC3F7" stroke-width="1.5" opacity="0.6"/>
+  <circle cx="300" cy="170" r="8" fill="none" stroke="#4FC3F7" stroke-width="1.5" opacity="0.6"/>
+  <circle cx="200" cy="190" r="8" fill="none" stroke="#4FC3F7" stroke-width="1.5" opacity="0.6"/>
+  <!-- Chain connections -->
+  <line x1="108" y1="90" x2="160" y2="100" stroke="#4FC3F7" stroke-width="0.8" opacity="0.3"/>
+  <line x1="240" y1="100" x2="292" y2="90" stroke="#4FC3F7" stroke-width="0.8" opacity="0.3"/>
+  <line x1="108" y1="170" x2="160" y2="140" stroke="#4FC3F7" stroke-width="0.8" opacity="0.3"/>
+  <line x1="240" y1="140" x2="292" y2="170" stroke="#4FC3F7" stroke-width="0.8" opacity="0.3"/>
+  <line x1="200" y1="150" x2="200" y2="182" stroke="#4FC3F7" stroke-width="0.8" opacity="0.3"/>
+  <!-- Checkmark -->
+  <path d="M192 110 L198 118 L212 100" fill="none" stroke="#00FF00" stroke-width="2.5" opacity="0.8"/>
+  <!-- Text -->
+  <text x="200" y="245" text-anchor="middle" fill="#555" font-family="monospace" font-size="10">DAO VOTING SYSTEM</text>
+</svg>

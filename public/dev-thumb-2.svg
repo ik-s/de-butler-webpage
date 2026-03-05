@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="250" viewBox="0 0 400 250">
+  <defs>
+    <linearGradient id="bg2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f0c29"/>
+      <stop offset="50%" style="stop-color:#1a1a3e"/>
+      <stop offset="100%" style="stop-color:#24243e"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="250" fill="url(#bg2)"/>
+  <!-- Rust gear -->
+  <circle cx="160" cy="115" r="40" fill="none" stroke="#E43717" stroke-width="2.5" opacity="0.8"/>
+  <circle cx="160" cy="115" r="25" fill="none" stroke="#E43717" stroke-width="1.5" opacity="0.5"/>
+  <circle cx="160" cy="115" r="8" fill="#E43717" opacity="0.6"/>
+  <!-- Gear teeth -->
+  <line x1="160" y1="70" x2="160" y2="80" stroke="#E43717" stroke-width="4" opacity="0.7"/>
+  <line x1="160" y1="150" x2="160" y2="160" stroke="#E43717" stroke-width="4" opacity="0.7"/>
+  <line x1="115" y1="115" x2="125" y2="115" stroke="#E43717" stroke-width="4" opacity="0.7"/>
+  <line x1="195" y1="115" x2="205" y2="115" stroke="#E43717" stroke-width="4" opacity="0.7"/>
+  <!-- Connection line -->
+  <line x1="200" y1="115" x2="230" y2="115" stroke="#9945FF" stroke-width="1" stroke-dasharray="4,4" opacity="0.6"/>
+  <!-- Solana logo simplified -->
+  <g transform="translate(240, 85)">
+    <path d="M0 20 L80 20 L70 35 L-10 35 Z" fill="none" stroke="#14F195" stroke-width="1.5" opacity="0.7"/>
+    <path d="M-10 40 L70 40 L80 55 L0 55 Z" fill="none" stroke="#9945FF" stroke-width="1.5" opacity="0.7"/>
+    <path d="M0 0 L80 0 L70 15 L-10 15 Z" fill="none" stroke="#14F195" stroke-width="1.5" opacity="0.7"/>
+  </g>
+  <!-- Network dots -->
+  <circle cx="280" cy="160" r="3" fill="#14F195" opacity="0.5"/>
+  <circle cx="310" cy="175" r="3" fill="#9945FF" opacity="0.5"/>
+  <circle cx="260" cy="180" r="3" fill="#14F195" opacity="0.5"/>
+  <line x1="280" y1="160" x2="310" y2="175" stroke="#9945FF" stroke-width="0.5" opacity="0.3"/>
+  <line x1="260" y1="180" x2="280" y2="160" stroke="#14F195" stroke-width="0.5" opacity="0.3"/>
+  <!-- Text -->
+  <text x="200" y="245" text-anchor="middle" fill="#555" font-family="monospace" font-size="10">RUST × SOLANA DAPP</text>
+</svg>
