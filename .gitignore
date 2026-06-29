@@ -6,3 +6,7 @@ coverage/
 *.log
 .env*
 !.env.example
+server/data/
+server/uploads/
+*.sqlite
+*.sqlite-*

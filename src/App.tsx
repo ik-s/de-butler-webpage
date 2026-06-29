@@ -1,18 +1,33 @@
 import React from "react";
 import { motion } from "motion/react";
-import { Instagram, Linkedin, ArrowRight, Menu } from "lucide-react";
+import { Instagram, Linkedin, ArrowRight, Menu, User, LogOut } from "lucide-react";
 import { Routes, Route, Link, useLocation } from "react-router-dom";
+import { fetchActivities } from "./lib/activitiesApi";
+import type { Activity, AdminSession } from "./lib/activitiesApi";
+import { adminSessionChangedEvent, clearAdminSession, loadStoredAdminSession } from "./lib/adminSession";
+import Activities from "./pages/Activities";
 import About from "./pages/About";
 import Events from "./pages/Events";
+import Login from "./pages/Login";
 
-const SectionHeader = ({ title }: { title: string }) => (
+const SectionHeader = ({ title, to }: { title: string; to?: string }) => (
   <div className="border-b border-black pb-2 mb-6 flex justify-between items-end">
     <h2 className="flex items-center gap-3 text-xl font-bold uppercase tracking-tighter transition-colors hover:text-neon-green">
       <span className="h-6 w-1.5 bg-neon-green" />
       {title}
     </h2>
-    <ArrowRight className="w-5 h-5 transition-transform hover:translate-x-1" />
+    {to ? (
+      <Link to={to} aria-label={`Go to ${title}`} className="transition-transform hover:translate-x-1">
+        <ArrowRight className="w-5 h-5" />
+      </Link>
+    ) : (
+      <ArrowRight className="w-5 h-5 transition-transform hover:translate-x-1" />
+    )}
   </div>
+);
+
+const EventDetailPlaceholder = () => (
+  <main className="min-h-[55vh] flex-grow bg-white" aria-label="Event detail placeholder" />
 );
 
 const ActivityItem = ({ title, date, category }: { title: string, date: string, category?: string, key?: any }) => (
@@ -131,23 +146,63 @@ const AboutSummary = () => (
 
 const activityImagePlaceholders = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
-const ActivityImageGrid = () => (
+export const ActivityImageGrid = ({ activities = [] }: { activities?: Activity[] }) => (
   <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-    {activityImagePlaceholders.map((item) => (
-      <motion.div
-        key={item}
-        whileHover={{ y: -4 }}
-        aria-label={`Activity image placeholder ${item}`}
-        className="aspect-[4/3] overflow-hidden border border-gray-200 bg-gray-100"
-      >
-        <div className="h-full w-full bg-[linear-gradient(135deg,#f4f4f5_0%,#e5e7eb_50%,#f8fafc_100%)]" />
-      </motion.div>
-    ))}
+    {activities.length > 0
+      ? activities.slice(0, 9).map((activity) => (
+          <motion.div
+            key={activity.id}
+            whileHover={{ y: -4 }}
+            className="aspect-[4/3] overflow-hidden border border-gray-200 bg-gray-100"
+          >
+            {activity.imageUrl ? (
+              <img
+                src={activity.imageUrl}
+                alt={activity.title}
+                loading="lazy"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="h-full w-full bg-[linear-gradient(135deg,#f4f4f5_0%,#e5e7eb_50%,#f8fafc_100%)]" />
+            )}
+          </motion.div>
+        ))
+      : activityImagePlaceholders.map((item) => (
+          <motion.div
+            key={item}
+            whileHover={{ y: -4 }}
+            aria-label={`Activity image placeholder ${item}`}
+            className="aspect-[4/3] overflow-hidden border border-gray-200 bg-gray-100"
+          >
+            <div className="h-full w-full bg-[linear-gradient(135deg,#f4f4f5_0%,#e5e7eb_50%,#f8fafc_100%)]" />
+          </motion.div>
+        ))}
   </div>
 );
 
 function Home() {
   const [leftTab, setLeftTab] = React.useState<"what" | "upcoming">("what");
+  const [homeActivities, setHomeActivities] = React.useState<Activity[]>([]);
+
+  React.useEffect(() => {
+    let isActive = true;
+
+    fetchActivities()
+      .then((items) => {
+        if (isActive) {
+          setHomeActivities(items);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setHomeActivities([]);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   const aboutActivities = [
     { title: "주간 블록체인 기술 세미나 및 네트워킹", category: "Core", date: "Feb 20, 2026" },
@@ -240,8 +295,8 @@ function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
           >
-            <SectionHeader title="Activities" />
-            <ActivityImageGrid />
+            <SectionHeader title="Activities" to="/activities" />
+            <ActivityImageGrid activities={homeActivities} />
           </motion.div>
         </div>
       </div>
@@ -271,8 +326,28 @@ const footerSocialLinks = [
 ];
 
 export default function App() {
+  const { pathname } = useLocation();
+  const showHeaderContact = pathname === "/";
+  const [adminSession, setAdminSession] = React.useState<AdminSession | null>(() => loadStoredAdminSession());
+
+  React.useEffect(() => {
+    const refreshAdminSession = () => setAdminSession(loadStoredAdminSession());
+    window.addEventListener(adminSessionChangedEvent, refreshAdminSession);
+    window.addEventListener("storage", refreshAdminSession);
+
+    return () => {
+      window.removeEventListener(adminSessionChangedEvent, refreshAdminSession);
+      window.removeEventListener("storage", refreshAdminSession);
+    };
+  }, []);
+
   const handleJoinClick = () => {
     window.alert("현재 지원 기간이 아닙니다.");
+  };
+
+  const handleLogout = () => {
+    clearAdminSession();
+    setAdminSession(null);
   };
 
   return (
@@ -292,13 +367,37 @@ export default function App() {
 
           <div className="hidden flex-1 items-center gap-12 text-[15px] font-extrabold text-slate-800 lg:flex">
             <Link to="/about" className="hover-underline">About</Link>
-            <a href="/#activities" className="hover-underline">Activities</a>
+            <Link to="/activities" className="hover-underline">Activities</Link>
             <Link to="/events" className="hover-underline">Events</Link>
-            <a href="/#contact" className="hover-underline">Contact</a>
+            {showHeaderContact && <a href="/#contact" className="hover-underline">Contact</a>}
           </div>
 
           <div className="ml-auto flex items-center gap-4">
             <Menu className="h-7 w-7 cursor-pointer lg:hidden" />
+            {adminSession ? (
+              <>
+                <span className="hidden items-center gap-2 rounded-full bg-slate-100 px-5 py-4 text-sm font-extrabold text-slate-900 sm:flex">
+                  <User className="h-4 w-4 text-slate-700" aria-hidden="true" />
+                  {adminSession.username}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  aria-label="Logout admin account"
+                  title="Logout"
+                  className="hidden h-12 w-12 items-center justify-center rounded-full text-slate-700 transition-colors hover:bg-neon-green hover:text-black sm:flex"
+                >
+                  <LogOut className="h-5 w-5" aria-hidden="true" />
+                </button>
+              </>
+            ) : (
+              <Link
+                to="/login"
+                className="hidden rounded-full bg-black px-6 py-4 text-sm font-extrabold text-white shadow-[0_16px_32px_rgba(0,0,0,0.18)] transition-colors hover:bg-neon-green hover:text-black sm:block"
+              >
+                Login
+              </Link>
+            )}
             <button
               onClick={handleJoinClick}
               className="hidden rounded-full bg-black px-8 py-4 text-sm font-extrabold text-white shadow-[0_16px_32px_rgba(0,0,0,0.18)] transition-colors hover:bg-neon-green hover:text-black sm:block"
@@ -312,7 +411,10 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
+        <Route path="/activities" element={<Activities />} />
         <Route path="/events" element={<Events />} />
+        <Route path="/events/:eventSlug" element={<EventDetailPlaceholder />} />
+        <Route path="/login" element={<Login />} />
       </Routes>
 
       {/* Footer */}

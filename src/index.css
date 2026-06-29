@@ -55,3 +55,8 @@
   transform: scaleX(1);
   transform-origin: bottom left;
 }
+
+.event-post-link:hover,
+.event-post-link:focus-visible {
+  background-color: rgba(0, 255, 0, 0.12);
+}
