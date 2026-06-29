@@ -64,77 +64,54 @@ const RisingItem = ({ date, title }: { date: string, title: string, key?: any })
   </motion.div>
 );
 
-const InteractiveGridHero = () => {
-  const [mousePos, setMousePos] = useState({ x: '50%', y: '50%' });
+const InteractiveGridHero = () => (
+  <section className="relative isolate mb-16 flex min-h-[calc(100svh-80px)] w-full overflow-hidden bg-[#00f000] lg:min-h-[calc(100svh-96px)]">
+    <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.08)_1px,transparent_1px)] bg-[size:100px_100px] opacity-45" />
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    setMousePos({ x: `${x}px`, y: `${y}px` });
-  };
-
-  return (
-    <section
-      onMouseMove={handleMouseMove}
-      className="relative w-full h-[60vh] bg-[#00FF00] flex flex-col items-center justify-center overflow-hidden mb-16 cursor-crosshair"
-    >
-      {/* Fluid Gradient Background */}
-      <div
-        className="absolute inset-0 opacity-80"
-        style={{
-          background: `
-            radial-gradient(circle at 20% 30%, #00cc00 0%, transparent 50%),
-            radial-gradient(circle at 80% 70%, #008800 0%, transparent 50%),
-            radial-gradient(circle at 50% 50%, #00FF00 0%, transparent 100%)
-          `,
-          filter: 'blur(60px)'
-        }}
-      />
-
-      {/* Noise/Grain Overlay */}
-      <div className="absolute inset-0 opacity-[0.15] pointer-events-none mix-blend-overlay bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
-
-      {/* Interactive Spotlight */}
-      <div
-        className="absolute inset-0 pointer-events-none transition-opacity duration-300"
-        style={{
-          background: `radial-gradient(circle 400px at ${mousePos.x} ${mousePos.y}, rgba(255, 255, 255, 0.3), transparent 80%)`
-        }}
-      />
-
-      <div className="relative z-10 text-center px-6 flex flex-col items-center justify-between h-full py-12">
+    <div className="relative z-10 mx-auto grid w-full max-w-7xl grid-cols-1 items-center gap-10 px-6 py-16 md:px-10 lg:grid-cols-[minmax(0,1fr)_minmax(280px,420px)] lg:py-20">
+      <div className="max-w-3xl text-left">
         <motion.span
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-[10px] md:text-xs font-bold tracking-[0.3em] text-black/60 uppercase"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="inline-flex rounded-full border border-black/15 bg-black/10 px-5 py-2 text-[10px] font-black uppercase tracking-[0.26em] text-black/70 md:text-xs"
         >
           KWANGWOON UNIVERSITY BLOCKCHAIN CLUB 2026
         </motion.span>
 
         <motion.h1
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="text-7xl md:text-9xl font-[1000] tracking-[-0.05em] text-black uppercase leading-none"
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.08 }}
+          className="mt-10 text-[clamp(4rem,8vw,8rem)] font-[1000] uppercase leading-none tracking-normal text-black"
         >
           DE-BUTLER
         </motion.h1>
 
-        <motion.span
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
-          className="text-[10px] md:text-xs font-bold tracking-[0.3em] text-black/60 uppercase"
+        <motion.p
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.16 }}
+          className="mt-10 max-w-2xl text-base font-bold uppercase tracking-[0.28em] text-black/65 md:text-lg"
         >
           YOUR BUTLER FOR THE DECENTRALIZED ERA
-        </motion.span>
+        </motion.p>
       </div>
 
-      {/* Subtle Scanline */}
-      <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent via-black/[0.03] to-transparent h-[20%] w-full animate-scanline" />
-    </section>
-  );
-};
+      <motion.div
+        initial={{ opacity: 0, scale: 0.92 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.12 }}
+        className="flex justify-center lg:justify-end"
+      >
+        <img
+          src="/DeButlerIcon.svg"
+          alt="De-Butler icon"
+          className="w-[min(68vw,18rem)] md:w-[20rem] lg:w-[22rem] drop-shadow-[0_28px_50px_rgba(0,0,0,0.22)]"
+        />
+      </motion.div>
+    </div>
+  </section>
+);
 
 function Home() {
   const [activeTab, setActiveTab] = useState<'dev' | 'res'>('dev');
@@ -326,32 +303,36 @@ export default function App() {
     <div className="min-h-screen flex flex-col font-sans">
       <ScrollToTop />
       {/* Navigation */}
-      <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100 px-6 py-4 flex items-center gap-12">
-        <div className="flex flex-col items-start">
-          <Link to="/" className="flex items-center gap-2 mb-1 group">
-            <div className="w-8 h-8 rounded flex items-center justify-center overflow-hidden border border-neon-green group-hover:border-white transition-colors">
-              <img src="/logo.jpg" alt="De-Butler Logo" className="w-full h-full object-cover" />
-            </div>
-            <span className="text-xl font-black tracking-tighter uppercase italic leading-none">De-Butler</span>
-          </Link>
-          <span className="text-[8px] font-bold tracking-[0.1em] uppercase text-gray-400 leading-none">
-            Your Butler for the Decentralized Era
-          </span>
-        </div>
+      <nav className="sticky top-0 z-50 bg-white">
+        <div className="mx-auto flex h-20 w-full max-w-7xl items-center gap-8 px-6 md:px-10 lg:h-24 lg:gap-14">
+          <div className="flex flex-col items-start">
+            <Link to="/" className="group mb-1 flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-md border border-neon-green">
+                <img src="/logo.jpg" alt="De-Butler Logo" className="h-full w-full object-cover" />
+              </div>
+              <span className="text-2xl font-black uppercase italic leading-none tracking-tight">De-Butler</span>
+            </Link>
+            <span className="text-[9px] font-bold uppercase leading-none tracking-[0.08em] text-gray-400">
+              Your Butler for the Decentralized Era
+            </span>
+          </div>
 
-        <div className="hidden lg:flex gap-8 text-[10px] font-bold uppercase tracking-[0.2em] flex-grow">
-          <Link to="/about" className="hover-underline text-black font-black">About</Link>
-          <a href="/#activities" className="hover-underline">Activities</a>
-          <a href="/#teams" className="hover-underline">Teams</a>
-          <a href="/#contact" className="hover-underline">Contact</a>
-        </div>
+          <div className="hidden flex-1 items-center gap-12 text-[15px] font-extrabold text-slate-800 lg:flex">
+            <Link to="/about" className="hover-underline">About</Link>
+            <a href="/#activities" className="hover-underline">Activities</a>
+            <a href="/#teams" className="hover-underline">Teams</a>
+            <a href="/#contact" className="hover-underline">Contact</a>
+          </div>
 
-        <div className="flex items-center gap-4 ml-auto">
-          <Search className="w-5 h-5 cursor-pointer" />
-          <Menu className="w-6 h-6 cursor-pointer lg:hidden" />
-          <button className="hidden sm:block bg-black text-white px-5 py-2 text-[10px] font-bold uppercase tracking-wider rounded-full hover:bg-neon-green hover:text-black transition-colors">
-            Join Us
-          </button>
+          <div className="ml-auto flex items-center gap-4">
+            <button aria-label="Search" className="flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-gray-100">
+              <Search className="h-6 w-6" />
+            </button>
+            <Menu className="h-7 w-7 cursor-pointer lg:hidden" />
+            <button className="hidden rounded-full bg-black px-8 py-4 text-sm font-extrabold text-white shadow-[0_16px_32px_rgba(0,0,0,0.18)] transition-colors hover:bg-neon-green hover:text-black sm:block">
+              Join Us
+            </button>
+          </div>
         </div>
       </nav>
 
