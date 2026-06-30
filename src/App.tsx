@@ -33,6 +33,10 @@ const EventDetailPlaceholder = () => (
   <main className="min-h-[55vh] flex-grow bg-white" aria-label="Event detail placeholder" />
 );
 
+export function formatHomeUpcomingDate(date: string): string {
+  return date.replace(/\b\d{4}-(\d{2})-(\d{2})\b/g, "$1.$2");
+}
+
 export const ActivityItem = ({
   title,
   date,
@@ -324,7 +328,9 @@ function Home() {
                     whileHover={{ x: 5 }}
                     className="flex items-center gap-5 border-b border-gray-100 py-5 last:border-0"
                   >
-                    <span className="w-16 shrink-0 text-2xl font-black italic text-black">{item.date}</span>
+                    <span className="w-16 shrink-0 text-2xl font-black italic text-black">
+                      {formatHomeUpcomingDate(item.date)}
+                    </span>
                     <p className="text-lg font-medium leading-tight text-black">{item.title}</p>
                   </motion.div>
                 ))}

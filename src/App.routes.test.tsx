@@ -5,7 +5,7 @@ import React from 'react';
 import { renderToString } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
 
-import App, { ActivityImageGrid, ActivityItem } from './App.tsx';
+import App, { ActivityImageGrid, ActivityItem, formatHomeUpcomingDate } from './App.tsx';
 import {
   buildHomeEventColumns,
   defaultEventRecords,
@@ -82,6 +82,12 @@ describe('app routes', () => {
 
       assert.doesNotMatch(html, /href="\/#contact"/);
     }
+  });
+
+  test('formats main page upcoming dates with month and day only', () => {
+    assert.equal(formatHomeUpcomingDate('2026-07-01'), '07.01');
+    assert.equal(formatHomeUpcomingDate('2026-12-31'), '12.31');
+    assert.equal(formatHomeUpcomingDate('04.01'), '04.01');
   });
 
   test('renders a dedicated login page', () => {
