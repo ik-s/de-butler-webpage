@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, before, describe, test } from 'node:test';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { Express } from 'express';
+import sharp from 'sharp';
 
 import { createApp } from './app.ts';
 
@@ -148,6 +149,43 @@ describe('activities API', () => {
 
     assert.equal(missingImageUrl.status, 400);
     assert.equal(missingImageUrl.body.error, 'imageUrl must start with /uploads/activities/');
+  });
+
+  test('optimizes uploaded activity images for display', async () => {
+    const tinyPngBase64 = (await sharp({
+      create: {
+        width: 1,
+        height: 1,
+        channels: 3,
+        background: '#00f000',
+      },
+    }).png().toBuffer()).toString('base64');
+
+    const uploadResult = await request<Record<string, unknown>>(baseUrl, '/api/activities/images', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        fileName: 'session-poster.png',
+        mimeType: 'image/png',
+        dataBase64: tinyPngBase64,
+      }),
+    });
+
+    assert.equal(uploadResult.status, 201);
+    assert.match(String(uploadResult.body.imageUrl), /^\/uploads\/activities\/session-poster-[a-f0-9]+\.webp$/);
+
+    const storedPath = path.join(
+      tempDir,
+      'uploads',
+      'activities',
+      path.basename(String(uploadResult.body.imageUrl)),
+    );
+    const storedBytes = await readFile(storedPath);
+
+    assert.equal(storedBytes.subarray(0, 4).toString('ascii'), 'RIFF');
+    assert.equal(storedBytes.subarray(8, 12).toString('ascii'), 'WEBP');
+
+    await rm(storedPath, { force: true });
   });
 
   test('lists activities by newest date first instead of sort order', async () => {

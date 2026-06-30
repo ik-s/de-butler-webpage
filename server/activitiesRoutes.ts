@@ -4,6 +4,7 @@ import path from 'node:path';
 
 import { Router } from 'express';
 import type { Request, RequestHandler, Response } from 'express';
+import sharp from 'sharp';
 
 import { ActivitiesRepository } from './activitiesRepository.ts';
 import type { CreateActivityInput, UpdateActivityInput } from './activityTypes.ts';
@@ -127,7 +128,7 @@ function hasImageSignature(mimeType: string, bytes: Buffer): boolean {
   return false;
 }
 
-function parseImageUpload(body: unknown): { fileName: string; bytes: Buffer } {
+function parseImageUpload(body: unknown): { baseName: string; bytes: Buffer } {
   if (!isPlainObject(body)) {
     throw new Error('Request body must be an object');
   }
@@ -159,8 +160,30 @@ function parseImageUpload(body: unknown): { fileName: string; bytes: Buffer } {
     throw new Error('image data does not match mimeType');
   }
 
-  const fileName = `${safeUploadBaseName(body.fileName)}-${crypto.randomBytes(4).toString('hex')}${extension}`;
-  return { fileName, bytes };
+  const baseName = `${safeUploadBaseName(body.fileName)}-${crypto.randomBytes(4).toString('hex')}`;
+  return { baseName, bytes };
+}
+
+async function optimizeActivityImage(upload: { baseName: string; bytes: Buffer }): Promise<{ fileName: string; bytes: Buffer }> {
+  try {
+    const bytes = await sharp(upload.bytes)
+      .rotate()
+      .resize({
+        width: 1600,
+        height: 1600,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .webp({ quality: 80 })
+      .toBuffer();
+
+    return {
+      fileName: `${upload.baseName}.webp`,
+      bytes,
+    };
+  } catch {
+    throw new Error('image data could not be optimized');
+  }
 }
 
 function deleteActivityUpload(imageUrl: string | null, uploadRoot: string | undefined): void {
@@ -238,15 +261,16 @@ export function createActivitiesRouter(repository: ActivitiesRepository, options
     response.json(repository.list());
   });
 
-  router.post('/activities/images', requireAdmin, (request, response) => {
+  router.post('/activities/images', requireAdmin, async (request, response) => {
     try {
       const uploadRoot = requireUploadRoot(options.activitiesUploadRoot);
       fs.mkdirSync(uploadRoot, { recursive: true });
 
       const upload = parseImageUpload(request.body);
-      fs.writeFileSync(path.join(uploadRoot, upload.fileName), upload.bytes, { flag: 'wx' });
+      const optimizedUpload = await optimizeActivityImage(upload);
+      fs.writeFileSync(path.join(uploadRoot, optimizedUpload.fileName), optimizedUpload.bytes, { flag: 'wx' });
 
-      response.status(201).json({ imageUrl: `${activityImagePrefix}${upload.fileName}` });
+      response.status(201).json({ imageUrl: `${activityImagePrefix}${optimizedUpload.fileName}` });
     } catch (error) {
       response.status(400).json({ error: error instanceof Error ? error.message : 'Invalid request' });
     }

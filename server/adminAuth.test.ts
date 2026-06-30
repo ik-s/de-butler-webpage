@@ -7,6 +7,7 @@ import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import express from 'express';
 import type { Express } from 'express';
+import sharp from 'sharp';
 
 import { createAdminAuth } from './adminAuth.ts';
 import { createApp } from './app.ts';
@@ -185,6 +186,14 @@ describe('admin authentication', () => {
       body: JSON.stringify({ username: 'De-Butler', password: 'debutlerzzang' }),
     });
     const token = String(login.body.token);
+    const imageBase64 = (await sharp({
+      create: {
+        width: 1,
+        height: 1,
+        channels: 3,
+        background: '#00f000',
+      },
+    }).jpeg().toBuffer()).toString('base64');
 
     const upload = await request<Record<string, unknown>>(baseUrl, '/api/activities/images', {
       method: 'POST',
@@ -192,15 +201,17 @@ describe('admin authentication', () => {
       body: JSON.stringify({
         fileName: 'seminar.jpg',
         mimeType: 'image/jpeg',
-        dataBase64: Buffer.from([0xff, 0xd8, 0xff, 0xd9]).toString('base64'),
+        dataBase64: imageBase64,
       }),
     });
 
     assert.equal(upload.status, 201);
-    assert.match(String(upload.body.imageUrl), /^\/uploads\/activities\/seminar-[a-f0-9]+\.jpg$/);
+    assert.match(String(upload.body.imageUrl), /^\/uploads\/activities\/seminar-[a-f0-9]+\.webp$/);
 
     const imagePath = path.join(tempDir, 'uploads', 'activities', path.basename(String(upload.body.imageUrl)));
-    assert.deepEqual(await readFile(imagePath), Buffer.from([0xff, 0xd8, 0xff, 0xd9]));
+    const imageBytes = await readFile(imagePath);
+    assert.equal(imageBytes.subarray(0, 4).toString('ascii'), 'RIFF');
+    assert.equal(imageBytes.subarray(8, 12).toString('ascii'), 'WEBP');
 
     const created = await request<Record<string, unknown>>(baseUrl, '/api/activities', {
       method: 'POST',
