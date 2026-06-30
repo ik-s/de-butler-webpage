@@ -9,6 +9,7 @@ export type EventRecord = {
   date: string;
   description: string | null;
   linkUrl: string | null;
+  done: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -19,6 +20,7 @@ export type EventInput = {
   date: string;
   description?: string | null;
   linkUrl?: string | null;
+  done?: boolean;
 };
 
 export async function fetchEvents(): Promise<EventRecord[]> {

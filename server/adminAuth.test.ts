@@ -5,8 +5,10 @@ import path from 'node:path';
 import { after, before, describe, test } from 'node:test';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import express from 'express';
 import type { Express } from 'express';
 
+import { createAdminAuth } from './adminAuth.ts';
 import { createApp } from './app.ts';
 
 type JsonValue = Record<string, unknown> | unknown[];
@@ -83,6 +85,87 @@ describe('admin authentication', () => {
     assert.equal(result.body.error, 'Invalid admin credentials');
   });
 
+  test('rejects expired admin tokens', async () => {
+    let now = 1_000_000;
+    const auth = createAdminAuth({
+      tokenSecret: 'test-secret-that-is-long-enough-for-hmac',
+      tokenTtlSeconds: 60,
+      now: () => now,
+    });
+    const authApp = express();
+    authApp.use(express.json());
+    authApp.use('/api/admin', auth.router);
+    authApp.post('/api/protected', auth.requireAdmin, (_request, response) => {
+      response.json({ ok: true });
+    });
+    let authServer: Server | undefined;
+
+    try {
+      await new Promise<void>((resolve) => {
+        authServer = authApp.listen(0, '127.0.0.1', resolve);
+      });
+      const address = authServer.address();
+      assert.equal(typeof address, 'object');
+      assert(address);
+      const authBaseUrl = `http://127.0.0.1:${(address as AddressInfo).port}`;
+
+      const login = await request<Record<string, unknown>>(authBaseUrl, '/api/admin/login', {
+        method: 'POST',
+        body: JSON.stringify({ username: 'De-Butler', password: 'debutlerzzang' }),
+      });
+      const token = String(login.body.token);
+
+      now += 61_000;
+      const expired = await request<Record<string, unknown>>(authBaseUrl, '/api/protected', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}` },
+        body: JSON.stringify({}),
+      });
+
+      assert.equal(expired.status, 401);
+      assert.equal(expired.body.error, 'Admin authentication required');
+    } finally {
+      if (authServer) {
+        await new Promise<void>((resolve, reject) => {
+          authServer?.close((error) => (error ? reject(error) : resolve()));
+        });
+      }
+    }
+  });
+
+  test('rejects production startup with default admin secrets', () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    const previousPassword = process.env.ADMIN_PASSWORD;
+    const previousSecret = process.env.ADMIN_TOKEN_SECRET;
+
+    try {
+      process.env.NODE_ENV = 'production';
+      delete process.env.ADMIN_PASSWORD;
+      delete process.env.ADMIN_TOKEN_SECRET;
+
+      assert.throws(
+        () => createAdminAuth(),
+        /ADMIN_PASSWORD must be configured in production/,
+      );
+    } finally {
+      if (previousNodeEnv === undefined) {
+        delete process.env.NODE_ENV;
+      } else {
+        process.env.NODE_ENV = previousNodeEnv;
+      }
+      if (previousPassword === undefined) {
+        delete process.env.ADMIN_PASSWORD;
+      } else {
+        process.env.ADMIN_PASSWORD = previousPassword;
+      }
+      if (previousSecret === undefined) {
+        delete process.env.ADMIN_TOKEN_SECRET;
+      } else {
+        process.env.ADMIN_TOKEN_SECRET = previousSecret;
+      }
+    }
+  });
+
   test('requires admin token for activity mutations', async () => {
     const result = await request<Record<string, unknown>>(baseUrl, '/api/activities', {
       method: 'POST',
@@ -134,6 +217,48 @@ describe('admin authentication', () => {
     assert.equal(created.status, 201);
     assert.equal(created.body.title, 'Admin Created Activity');
     assert.equal(created.body.imageUrl, upload.body.imageUrl);
+  });
+
+  test('rejects image uploads whose bytes do not match the declared mime type', async () => {
+    const login = await request<Record<string, unknown>>(baseUrl, '/api/admin/login', {
+      method: 'POST',
+      body: JSON.stringify({ username: 'De-Butler', password: 'debutlerzzang' }),
+    });
+    const token = String(login.body.token);
+
+    const upload = await request<Record<string, unknown>>(baseUrl, '/api/activities/images', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        fileName: 'not-a-png.png',
+        mimeType: 'image/png',
+        dataBase64: Buffer.from([0xff, 0xd8, 0xff, 0xd9]).toString('base64'),
+      }),
+    });
+
+    assert.equal(upload.status, 400);
+    assert.equal(upload.body.error, 'image data does not match mimeType');
+  });
+
+  test('rejects image uploads above the server size limit', async () => {
+    const login = await request<Record<string, unknown>>(baseUrl, '/api/admin/login', {
+      method: 'POST',
+      body: JSON.stringify({ username: 'De-Butler', password: 'debutlerzzang' }),
+    });
+    const token = String(login.body.token);
+
+    const upload = await request<Record<string, unknown>>(baseUrl, '/api/activities/images', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        fileName: 'too-large.jpg',
+        mimeType: 'image/jpeg',
+        dataBase64: Buffer.alloc(2 * 1024 * 1024 + 1, 0xff).toString('base64'),
+      }),
+    });
+
+    assert.equal(upload.status, 400);
+    assert.equal(upload.body.error, 'image data exceeds 2 MB');
   });
 
   test('accepts an issued admin token after app recreation', async () => {

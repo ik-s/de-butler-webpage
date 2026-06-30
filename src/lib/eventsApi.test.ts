@@ -28,6 +28,7 @@ describe('fetchEvents', () => {
             date: '2026.04.06',
             description: 'De-Butler 심화 세션 안내입니다.',
             linkUrl: 'https://example.com/session',
+            done: false,
             createdAt: '2026-04-01T00:00:00.000Z',
             updatedAt: '2026-04-01T00:00:00.000Z',
           },
@@ -77,6 +78,7 @@ describe('admin event API client', () => {
           date: '2026.04.06',
           description: null,
           linkUrl: null,
+          done: false,
           createdAt: '2026-04-01T00:00:00.000Z',
           updatedAt: '2026-04-01T00:00:00.000Z',
         }),
@@ -90,8 +92,9 @@ describe('admin event API client', () => {
       date: '2026.04.06',
       description: '공지 본문',
       linkUrl: 'https://example.com/session',
+      done: false,
     });
-    await updateEvent('admin-token', 1, { category: 'UPCOMING', linkUrl: 'https://example.com/updated' });
+    await updateEvent('admin-token', 1, { category: 'UPCOMING', linkUrl: 'https://example.com/updated', done: true });
     await deleteEvent('admin-token', 1);
 
     assert.deepEqual(
@@ -102,5 +105,7 @@ describe('admin event API client', () => {
         ['/api/events/1', 'DELETE', 'Bearer admin-token'],
       ],
     );
+    assert.equal((calls[0].body as { done?: boolean }).done, false);
+    assert.equal((calls[1].body as { done?: boolean }).done, true);
   });
 });

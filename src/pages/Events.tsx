@@ -8,55 +8,23 @@ import {
 } from "../lib/eventsApi";
 import { isUnauthorizedError } from "../lib/apiError";
 import { adminSessionChangedEvent, clearAdminSession, loadStoredAdminSession } from "../lib/adminSession";
+import {
+  isDefaultEventRecord,
+  loadHiddenDefaultEventIds,
+  mergeDefaultEventRecords,
+  saveHiddenDefaultEventIds,
+} from "../lib/eventContent";
 import type { AdminSession } from "../lib/activitiesApi";
 import type { EventCategory, EventInput, EventRecord } from "../lib/eventsApi";
 
 const eventTabs: EventCategory[] = ["WHAT DOES", "UPCOMING"];
+const eventsPerPage = 5;
+const upcomingViewTabs = [
+  { id: "scheduled", label: "진행될 일정" },
+  { id: "done", label: "지난 일정" },
+] as const;
 
-const sampleEvents: EventRecord[] = [
-  {
-    id: -1,
-    title: "De-Butler가 하는 일",
-    category: "WHAT DOES",
-    date: "2026.06.29",
-    description:
-      "De-Butler는 블록체인과 웹3 기술을 함께 학습하고, 서비스 기획부터 개발까지 이어지는 실전 프로젝트를 운영합니다.",
-    linkUrl: "/events/what-does-debutler",
-    createdAt: "2026-06-29T00:00:00.000Z",
-    updatedAt: "2026-06-29T00:00:00.000Z",
-  },
-  {
-    id: -2,
-    title: "스터디와 프로젝트를 연결하는 운영 방식",
-    category: "WHAT DOES",
-    date: "2026.06.20",
-    description:
-      "정기 세션에서 익힌 개념을 팀 프로젝트로 확장하며, 멤버들이 직접 리서치와 구현 경험을 쌓을 수 있도록 돕습니다.",
-    linkUrl: "/events/study-session",
-    createdAt: "2026-06-20T00:00:00.000Z",
-    updatedAt: "2026-06-20T00:00:00.000Z",
-  },
-  {
-    id: -3,
-    title: "신규 멤버 오리엔테이션 안내",
-    category: "UPCOMING",
-    date: "2026.07.08",
-    description: "새로운 멤버를 위한 De-Butler 소개, 활동 로드맵 공유, 팀 매칭 세션이 진행될 예정입니다.",
-    linkUrl: "/events/orientation",
-    createdAt: "2026-07-01T00:00:00.000Z",
-    updatedAt: "2026-07-01T00:00:00.000Z",
-  },
-  {
-    id: -4,
-    title: "여름 빌드 나이트 참가 신청",
-    category: "UPCOMING",
-    date: "2026.07.18",
-    description: "아이디어 검증부터 프로토타입 제작까지 하루 동안 집중해서 진행하는 빌드 나이트 신청이 곧 시작됩니다.",
-    linkUrl: "/events/build-night",
-    createdAt: "2026-07-01T00:00:00.000Z",
-    updatedAt: "2026-07-01T00:00:00.000Z",
-  },
-];
+export type UpcomingView = (typeof upcomingViewTabs)[number]["id"];
 
 export type EventFormState = {
   title: string;
@@ -64,6 +32,7 @@ export type EventFormState = {
   date: string;
   description: string;
   linkUrl: string;
+  done: boolean;
 };
 
 const emptyForm: EventFormState = {
@@ -72,6 +41,7 @@ const emptyForm: EventFormState = {
   date: "",
   description: "",
   linkUrl: "",
+  done: false,
 };
 
 function toFormState(event: EventRecord): EventFormState {
@@ -81,6 +51,7 @@ function toFormState(event: EventRecord): EventFormState {
     date: event.date,
     description: event.description || "",
     linkUrl: event.linkUrl || "",
+    done: event.done,
   };
 }
 
@@ -90,7 +61,8 @@ function toEventInput(form: EventFormState): EventInput {
     category: form.category,
     date: form.date.trim(),
     description: form.description.trim() || null,
-    linkUrl: form.linkUrl.trim() || null,
+    linkUrl: form.category === "UPCOMING" ? null : form.linkUrl.trim() || null,
+    done: form.category === "UPCOMING" ? form.done : false,
   };
 }
 
@@ -124,6 +96,7 @@ export function EventForm({
 }) {
   const inputClass =
     "border border-gray-300 px-4 py-3 text-base font-bold normal-case tracking-normal text-black outline-none focus:border-black";
+  const isUpcoming = form.category === "UPCOMING";
 
   return (
     <div className="grid gap-4">
@@ -134,7 +107,15 @@ export function EventForm({
         <Field label="Category">
           <select
             value={form.category}
-            onChange={(event) => onChange({ ...form, category: event.target.value as EventCategory })}
+            onChange={(event) => {
+              const category = event.target.value as EventCategory;
+              onChange({
+                ...form,
+                category,
+                linkUrl: category === "UPCOMING" ? "" : form.linkUrl,
+                done: category === "UPCOMING" ? form.done : false,
+              });
+            }}
             className={inputClass}
           >
             {eventTabs.map((tab) => (
@@ -145,15 +126,29 @@ export function EventForm({
           </select>
         </Field>
         <Field label="Date">
-          <input value={form.date} onChange={(event) => onChange({ ...form, date: event.target.value })} className={inputClass} />
+          <input type="date" value={form.date} onChange={(event) => onChange({ ...form, date: event.target.value })} className={inputClass} />
         </Field>
         <Field label="Link URL">
           <input
-            value={form.linkUrl}
+            value={isUpcoming ? "" : form.linkUrl}
+            readOnly={isUpcoming}
+            title={isUpcoming ? "UPCOMING posts do not use a link URL." : undefined}
             onChange={(event) => onChange({ ...form, linkUrl: event.target.value })}
-            className={inputClass}
+            className={`${inputClass} ${isUpcoming ? "cursor-not-allowed" : ""}`}
           />
         </Field>
+        {isUpcoming && (
+          <Field label="Done">
+            <select
+              value={String(form.done)}
+              onChange={(event) => onChange({ ...form, done: event.target.value === "true" })}
+              className={inputClass}
+            >
+              <option value="false">false</option>
+              <option value="true">true</option>
+            </select>
+          </Field>
+        )}
       </div>
       <Field label="Description">
         <textarea
@@ -184,6 +179,155 @@ export function EventForm({
   );
 }
 
+export function EventEditModal({
+  title,
+  children,
+  onClose,
+}: {
+  title: string;
+  children: React.ReactNode;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/45 px-5 py-16">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="w-full max-w-4xl border border-black bg-white p-6 shadow-2xl"
+      >
+        <div className="mb-5 flex items-center justify-between gap-4">
+          <h2 className="text-2xl font-black uppercase tracking-tight text-black">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="border border-black bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-black"
+          >
+            Close
+          </button>
+        </div>
+        {children}
+      </section>
+    </div>
+  );
+}
+
+export function splitUpcomingEvents(events: EventRecord[]) {
+  return {
+    scheduled: events.filter((event) => !event.done),
+    done: events.filter((event) => event.done),
+  };
+}
+
+export function paginateEvents(events: EventRecord[], page: number, perPage = eventsPerPage) {
+  const totalPages = Math.max(1, Math.ceil(events.length / perPage));
+  const currentPage = Math.min(Math.max(1, page), totalPages);
+  const startIndex = (currentPage - 1) * perPage;
+
+  return {
+    currentPage,
+    totalPages,
+    items: events.slice(startIndex, startIndex + perPage),
+  };
+}
+
+export function selectUpcomingViewEvents(
+  groups: ReturnType<typeof splitUpcomingEvents>,
+  view: UpcomingView,
+  donePage: number,
+) {
+  if (view === "done") {
+    return paginateEvents(groups.done, donePage);
+  }
+
+  return {
+    currentPage: 1,
+    totalPages: 1,
+    items: groups.scheduled,
+  };
+}
+
+export function UpcomingViewSelector({
+  activeView,
+  onChange,
+}: {
+  activeView: UpcomingView;
+  onChange: (view: UpcomingView) => void;
+}) {
+  return (
+    <div className="mb-6 flex flex-wrap items-center gap-x-10 gap-y-3">
+      {upcomingViewTabs.map((view) => {
+        const isActive = activeView === view.id;
+
+        return (
+          <button
+            key={view.id}
+            type="button"
+            onClick={() => onChange(view.id)}
+            className={`text-left text-2xl font-black transition-colors ${
+              isActive ? "text-black" : "text-gray-300 hover:text-gray-500"
+            }`}
+          >
+            {view.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function PaginationControls({
+  currentPage,
+  totalPages,
+  onPageChange,
+}: {
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}) {
+  if (totalPages <= 1) {
+    return null;
+  }
+
+  const buttonClass =
+    "h-9 min-w-9 border border-black bg-white px-3 text-sm font-black text-black transition-colors hover:bg-neon-green disabled:border-gray-300 disabled:text-gray-300 disabled:hover:bg-white";
+
+  return (
+    <nav aria-label="Event pages" className="mt-10 flex items-center justify-center gap-2">
+      <button type="button" disabled={currentPage === 1} onClick={() => onPageChange(1)} className={buttonClass}>
+        &lt;&lt;
+      </button>
+      <button
+        type="button"
+        disabled={currentPage === 1}
+        onClick={() => onPageChange(currentPage - 1)}
+        className={buttonClass}
+      >
+        &lt;
+      </button>
+      <span className="flex h-10 min-w-10 items-center justify-center bg-black px-3 text-sm font-black text-white">
+        {currentPage}
+      </span>
+      <button
+        type="button"
+        disabled={currentPage === totalPages}
+        onClick={() => onPageChange(currentPage + 1)}
+        className={buttonClass}
+      >
+        &gt;
+      </button>
+      <button
+        type="button"
+        disabled={currentPage === totalPages}
+        onClick={() => onPageChange(totalPages)}
+        className={buttonClass}
+      >
+        &gt;&gt;
+      </button>
+    </nav>
+  );
+}
+
 export function EventList({
   events,
   session,
@@ -198,45 +342,57 @@ export function EventList({
   renderEditForm?: (event: EventRecord) => React.ReactNode;
 }) {
   return (
-    <div className="divide-y divide-gray-200 border-t border-gray-200">
-      {events.map((event) => (
-        <article key={event.id} className="event-post-link px-5 py-10 text-left transition-colors">
-          <div className="grid gap-8 md:grid-cols-[1fr_auto] md:items-start">
-            <a href={event.linkUrl || "#"} className="block">
-              <h2 className="text-xl font-black leading-snug text-black md:text-2xl">{event.title}</h2>
-              {event.description && (
-                <p className="mt-5 text-base leading-8 text-black md:text-lg">{event.description}</p>
+    <div className="grid gap-5">
+      {events.map((event) => {
+        const shouldOpenInNewTab = event.category === "WHAT DOES" && Boolean(event.linkUrl);
+
+        return (
+          <article
+            key={event.id}
+            className="event-post-link rounded-md border border-gray-200 bg-white px-5 py-8 text-left transition-colors hover:bg-neon-green/10 md:px-6"
+          >
+            <div className="grid gap-8 md:grid-cols-[1fr_auto] md:items-start">
+              <a
+                href={event.linkUrl || "#"}
+                target={shouldOpenInNewTab ? "_blank" : undefined}
+                rel={shouldOpenInNewTab ? "noreferrer" : undefined}
+                className="block"
+              >
+                <h2 className="text-xl font-black leading-snug text-black md:text-2xl">{event.title}</h2>
+                {event.description && (
+                  <p className="mt-5 text-base leading-8 text-black md:text-lg">{event.description}</p>
+                )}
+                <div className="mt-6 flex flex-wrap items-center gap-3 text-sm font-medium text-gray-400">
+                  <span className="font-bold text-neon-green">{event.category}</span>
+                  <span aria-hidden="true">|</span>
+                  <time dateTime={event.date.replaceAll(".", "-")}>{event.date}</time>
+                </div>
+              </a>
+
+              {session && (
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => onEdit(event)}
+                    className="border border-black bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-black"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDelete(event)}
+                    className="bg-black px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-white"
+                  >
+                    Delete
+                  </button>
+                </div>
               )}
-              <div className="mt-6 flex flex-wrap items-center gap-3 text-sm font-medium text-gray-400">
-                <span className="font-bold text-neon-green">{event.category}</span>
-                <span aria-hidden="true">|</span>
-                <time dateTime={event.date.replaceAll(".", "-")}>{event.date}</time>
-              </div>
-            </a>
+            </div>
 
-            {session && event.id > 0 && (
-              <div className="flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => onEdit(event)}
-                  className="border border-black bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-black"
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onDelete(event)}
-                  className="bg-black px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-white"
-                >
-                  Delete
-                </button>
-              </div>
-            )}
-          </div>
-
-          {renderEditForm?.(event)}
-        </article>
-      ))}
+            {renderEditForm?.(event)}
+          </article>
+        );
+      })}
     </div>
   );
 }
@@ -251,6 +407,12 @@ export default function Events() {
   const [createForm, setCreateForm] = React.useState<EventFormState>(emptyForm);
   const [editingId, setEditingId] = React.useState<number | null>(null);
   const [editForm, setEditForm] = React.useState<EventFormState>(emptyForm);
+  const [hiddenDefaultEventIds, setHiddenDefaultEventIds] = React.useState<number[]>(() =>
+    loadHiddenDefaultEventIds(),
+  );
+  const [whatDoesPage, setWhatDoesPage] = React.useState(1);
+  const [doneUpcomingPage, setDoneUpcomingPage] = React.useState(1);
+  const [activeUpcomingView, setActiveUpcomingView] = React.useState<UpcomingView>("scheduled");
 
   const loadEventList = React.useCallback(async () => {
     setStatus("loading");
@@ -266,6 +428,12 @@ export default function Events() {
   React.useEffect(() => {
     void loadEventList();
   }, [loadEventList]);
+
+  React.useEffect(() => {
+    setWhatDoesPage(1);
+    setDoneUpcomingPage(1);
+    setActiveUpcomingView("scheduled");
+  }, [activeTab]);
 
   React.useEffect(() => {
     const refreshAdminSession = () => {
@@ -315,7 +483,18 @@ export default function Events() {
     }
   };
 
+  const hideDefaultEvent = (event: EventRecord) => {
+    if (!isDefaultEventRecord(event) || hiddenDefaultEventIds.includes(event.id)) {
+      return;
+    }
+
+    const nextIds = [...hiddenDefaultEventIds, event.id];
+    setHiddenDefaultEventIds(nextIds);
+    saveHiddenDefaultEventIds(nextIds);
+  };
+
   const startEdit = (event: EventRecord) => {
+    setAdminMessage("");
     setEditingId(event.id);
     setEditForm(toFormState(event));
   };
@@ -327,6 +506,14 @@ export default function Events() {
 
     setAdminMessage("");
     try {
+      if (isDefaultEventRecord(event)) {
+        await createEvent(session.token, toEventInput(editForm));
+        hideDefaultEvent(event);
+        setEditingId(null);
+        await loadEventList();
+        return;
+      }
+
       await updateEvent(session.token, event.id, toEventInput(editForm));
       setEditingId(null);
       await loadEventList();
@@ -341,6 +528,14 @@ export default function Events() {
     }
 
     setAdminMessage("");
+    if (isDefaultEventRecord(event)) {
+      hideDefaultEvent(event);
+      if (editingId === event.id) {
+        setEditingId(null);
+      }
+      return;
+    }
+
     try {
       await deleteEvent(session.token, event.id);
       if (editingId === event.id) {
@@ -352,8 +547,12 @@ export default function Events() {
     }
   };
 
-  const displayEvents = events.length > 0 ? events : sampleEvents;
+  const displayEvents = mergeDefaultEventRecords(events, hiddenDefaultEventIds);
   const visibleEvents = displayEvents.filter((event) => event.category === activeTab);
+  const upcomingGroups = splitUpcomingEvents(visibleEvents);
+  const paginatedWhatDoes = paginateEvents(visibleEvents, whatDoesPage);
+  const selectedUpcomingEvents = selectUpcomingViewEvents(upcomingGroups, activeUpcomingView, doneUpcomingPage);
+  const editingEvent = editingId ? displayEvents.find((event) => event.id === editingId) : null;
 
   return (
     <main className="min-h-screen flex-grow bg-white pb-28 pt-24">
@@ -421,6 +620,10 @@ export default function Events() {
           </section>
         )}
 
+        {session && adminMessage && !isCreateOpen && (
+          <p className="mb-10 text-right text-sm font-bold text-red-600">{adminMessage}</p>
+        )}
+
         {status === "error" && (
           <div className="mb-10 border border-black bg-white p-8 text-lg font-bold text-black">
             Events could not be loaded. Sample events are shown for now.
@@ -437,26 +640,52 @@ export default function Events() {
         </div>
 
         <div className="mt-16">
-          <EventList
-            events={visibleEvents}
-            session={session}
-            onEdit={startEdit}
-            onDelete={(event) => void handleDelete(event)}
-            renderEditForm={(event) =>
-              session && editingId === event.id ? (
-                <div className="mt-8 border-t border-gray-200 pt-5">
-                  <EventForm
-                    form={editForm}
-                    submitLabel="Save Changes"
-                    onCancel={() => setEditingId(null)}
-                    onChange={setEditForm}
-                    onSubmit={() => void handleUpdate(event)}
-                  />
-                </div>
-              ) : null
-            }
-          />
+          {activeTab === "UPCOMING" ? (
+            <section>
+              <UpcomingViewSelector activeView={activeUpcomingView} onChange={setActiveUpcomingView} />
+
+              <EventList
+                events={selectedUpcomingEvents.items}
+                session={session}
+                onEdit={startEdit}
+                onDelete={(event) => void handleDelete(event)}
+              />
+
+              {activeUpcomingView === "done" && (
+                <PaginationControls
+                  currentPage={selectedUpcomingEvents.currentPage}
+                  totalPages={selectedUpcomingEvents.totalPages}
+                  onPageChange={setDoneUpcomingPage}
+                />
+              )}
+            </section>
+          ) : (
+            <>
+              <EventList
+                events={paginatedWhatDoes.items}
+                session={session}
+                onEdit={startEdit}
+                onDelete={(event) => void handleDelete(event)}
+              />
+              <PaginationControls
+                currentPage={paginatedWhatDoes.currentPage}
+                totalPages={paginatedWhatDoes.totalPages}
+                onPageChange={setWhatDoesPage}
+              />
+            </>
+          )}
         </div>
+        {session && editingEvent && (
+          <EventEditModal title="Edit Event" onClose={() => setEditingId(null)}>
+            <EventForm
+              form={editForm}
+              submitLabel="Save Changes"
+              onCancel={() => setEditingId(null)}
+              onChange={setEditForm}
+              onSubmit={() => void handleUpdate(editingEvent)}
+            />
+          </EventEditModal>
+        )}
       </section>
     </main>
   );

@@ -1,5 +1,5 @@
 import express from 'express';
-import type { Express } from 'express';
+import type { Express, NextFunction, Request, Response } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -18,6 +18,13 @@ export type AppOptions = {
 
 const defaultUploadRoot = path.resolve(process.cwd(), 'server/uploads');
 
+function isRequestEntityTooLarge(error: unknown): boolean {
+  return typeof error === 'object'
+    && error !== null
+    && 'type' in error
+    && (error as { type?: unknown }).type === 'entity.too.large';
+}
+
 export function createApp(options: AppOptions = {}): Express {
   const app = express();
   const database = createDatabase({ dbPath: options.dbPath });
@@ -29,7 +36,15 @@ export function createApp(options: AppOptions = {}): Express {
 
   fs.mkdirSync(activitiesUploadRoot, { recursive: true });
 
-  app.use(express.json());
+  app.use(express.json({ limit: '3mb' }));
+  app.use((error: unknown, _request: Request, response: Response, next: NextFunction) => {
+    if (isRequestEntityTooLarge(error)) {
+      response.status(413).json({ error: 'Request body too large' });
+      return;
+    }
+
+    next(error);
+  });
   app.use(
     '/uploads/activities',
     express.static(activitiesUploadRoot, {

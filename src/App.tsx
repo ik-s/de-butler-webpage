@@ -5,6 +5,9 @@ import { Routes, Route, Link, useLocation } from "react-router-dom";
 import { fetchActivities } from "./lib/activitiesApi";
 import type { Activity, AdminSession } from "./lib/activitiesApi";
 import { adminSessionChangedEvent, clearAdminSession, loadStoredAdminSession } from "./lib/adminSession";
+import { fetchEvents } from "./lib/eventsApi";
+import type { EventRecord } from "./lib/eventsApi";
+import { buildHomeEventColumns, loadHiddenDefaultEventIds } from "./lib/eventContent";
 import Activities from "./pages/Activities";
 import About from "./pages/About";
 import Events from "./pages/Events";
@@ -30,18 +33,42 @@ const EventDetailPlaceholder = () => (
   <main className="min-h-[55vh] flex-grow bg-white" aria-label="Event detail placeholder" />
 );
 
-const ActivityItem = ({ title, date, category }: { title: string, date: string, category?: string, key?: any }) => (
-  <motion.div
+export const ActivityItem = ({
+  title,
+  date,
+  category,
+  linkUrl,
+}: {
+  title: string;
+  date: string;
+  category?: string;
+  linkUrl?: string | null;
+}) => {
+  const content = (
+    <>
+      {category && <span className="text-[10px] font-bold uppercase text-neon-green mb-1 block">{category}</span>}
+      <h3 className="text-lg font-medium leading-tight group-hover:text-gray-600 transition-colors">
+        {title}
+      </h3>
+      <p className="text-xs text-gray-400 mt-2 font-mono uppercase">{date}</p>
+    </>
+  );
+
+  return (
+    <motion.div
     whileHover={{ x: 5 }}
     className="group cursor-pointer border-b border-gray-100 py-4 last:border-0"
   >
-    {category && <span className="text-[10px] font-bold uppercase text-neon-green mb-1 block">{category}</span>}
-    <h3 className="text-lg font-medium leading-tight group-hover:text-gray-600 transition-colors">
-      {title}
-    </h3>
-    <p className="text-xs text-gray-400 mt-2 font-mono uppercase">{date}</p>
-  </motion.div>
-);
+      {linkUrl ? (
+        <a href={linkUrl} target="_blank" rel="noreferrer" className="block">
+          {content}
+        </a>
+      ) : (
+        content
+      )}
+    </motion.div>
+  );
+};
 
 const InteractiveGridHero = () => {
   const [mousePos, setMousePos] = React.useState({ x: "50%", y: "50%" });
@@ -183,6 +210,14 @@ export const ActivityImageGrid = ({ activities = [] }: { activities?: Activity[]
 function Home() {
   const [leftTab, setLeftTab] = React.useState<"what" | "upcoming">("what");
   const [homeActivities, setHomeActivities] = React.useState<Activity[]>([]);
+  const [homeEvents, setHomeEvents] = React.useState<EventRecord[]>([]);
+  const [hiddenDefaultEventIds, setHiddenDefaultEventIds] = React.useState<number[]>(() =>
+    loadHiddenDefaultEventIds(),
+  );
+  const homeEventColumns = React.useMemo(
+    () => buildHomeEventColumns(homeEvents, hiddenDefaultEventIds),
+    [homeEvents, hiddenDefaultEventIds],
+  );
 
   React.useEffect(() => {
     let isActive = true;
@@ -204,18 +239,27 @@ function Home() {
     };
   }, []);
 
-  const aboutActivities = [
-    { title: "주간 블록체인 기술 세미나 및 네트워킹", category: "Core", date: "Feb 20, 2026" },
-    { title: "Web3 빌더를 위한 온보딩 워크샵", category: "Event", date: "Feb 15, 2026" },
-    { title: "국내외 주요 블록체인 컨퍼런스 참여", category: "Core", date: "Jan 28, 2026" },
-    { title: "학회원 간의 친목 도모를 위한 '버틀러 나잇'", category: "Social", date: "Jan 10, 2026" },
-    { title: "광운대학교 블록체인 커뮤니티 빌딩", category: "Core", date: "Jan 05, 2026" },
-  ];
+  React.useEffect(() => {
+    let isActive = true;
 
-  const upcomingItems = [
-    { title: "리크루팅", date: "03.04" },
-    { title: "NOT CENT ANYMORE 부스 진행", date: "03.04" },
-  ];
+    setHiddenDefaultEventIds(loadHiddenDefaultEventIds());
+
+    fetchEvents()
+      .then((items) => {
+        if (isActive) {
+          setHomeEvents(items);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setHomeEvents([]);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   return (
     <main className="flex-grow w-full pb-12">
@@ -262,18 +306,19 @@ function Home() {
             </div>
             {leftTab === "what" ? (
               <div className="space-y-1">
-                {aboutActivities.map((activity, idx) => (
+                {homeEventColumns.whatDoes.map((activity, idx) => (
                   <ActivityItem
                     key={idx}
                     category={activity.category}
                     title={activity.title}
                     date={activity.date}
+                    linkUrl={activity.linkUrl}
                   />
                 ))}
               </div>
             ) : (
               <div>
-                {upcomingItems.map((item, idx) => (
+                {homeEventColumns.upcoming.map((item, idx) => (
                   <motion.div
                     key={idx}
                     whileHover={{ x: 5 }}

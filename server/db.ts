@@ -30,6 +30,7 @@ export function createDatabase(options: DatabaseOptions = {}): Database {
       location TEXT,
       image_url TEXT,
       link_url TEXT,
+      done INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -59,6 +60,9 @@ export function createDatabase(options: DatabaseOptions = {}): Database {
   }
   if (!eventColumnNames.has('link_url')) {
     database.exec('ALTER TABLE events ADD COLUMN link_url TEXT');
+  }
+  if (!eventColumnNames.has('done')) {
+    database.exec('ALTER TABLE events ADD COLUMN done INTEGER NOT NULL DEFAULT 0');
   }
 
   database.exec(`

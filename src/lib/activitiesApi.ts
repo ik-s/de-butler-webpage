@@ -1,5 +1,7 @@
 import { ApiError } from "./apiError";
 
+export const maxActivityImageUploadBytes = 2 * 1024 * 1024;
+
 export type Activity = {
   id: number;
   title: string;
@@ -79,6 +81,10 @@ export async function uploadActivityImageData(
 }
 
 export async function uploadActivityImageFile(token: string, file: File): Promise<{ imageUrl: string }> {
+  if (file.size > maxActivityImageUploadBytes) {
+    throw new ApiError('Image must be 2 MB or smaller', 400);
+  }
+
   const dataBase64 = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {

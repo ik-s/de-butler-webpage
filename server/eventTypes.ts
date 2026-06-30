@@ -7,6 +7,7 @@ export type EventRecord = {
   date: string;
   description: string | null;
   linkUrl: string | null;
+  done: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -17,6 +18,7 @@ export type CreateEventInput = {
   date: string;
   description?: string | null;
   linkUrl?: string | null;
+  done?: boolean;
 };
 
 export type UpdateEventInput = Partial<CreateEventInput>;

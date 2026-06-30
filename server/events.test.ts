@@ -93,6 +93,7 @@ describe('events API', () => {
     assert.equal(createResult.body.date, '2026.04.06');
     assert.equal(createResult.body.description, 'De-Butler advanced session notice.');
     assert.equal(createResult.body.linkUrl, 'https://example.com/session-1');
+    assert.equal(createResult.body.done, false);
     assert.equal(typeof createResult.body.id, 'number');
     assert.equal(typeof createResult.body.createdAt, 'string');
     assert.equal(typeof createResult.body.updatedAt, 'string');
@@ -109,6 +110,7 @@ describe('events API', () => {
       body: JSON.stringify({
         title: 'Advanced Session Week 1 Updated',
         category: 'UPCOMING',
+        done: true,
         linkUrl: 'https://example.com/session-1-updated',
       }),
     });
@@ -118,10 +120,12 @@ describe('events API', () => {
     assert.equal(updateResult.body.category, 'UPCOMING');
     assert.equal(updateResult.body.date, '2026.04.06');
     assert.equal(updateResult.body.linkUrl, 'https://example.com/session-1-updated');
+    assert.equal(updateResult.body.done, true);
 
     const readResult = await request<Record<string, unknown>>(baseUrl, `/api/events/${eventId}`);
     assert.equal(readResult.status, 200);
     assert.equal(readResult.body.title, 'Advanced Session Week 1 Updated');
+    assert.equal(readResult.body.done, true);
 
     const deleteResult = await request<undefined>(baseUrl, `/api/events/${eventId}`, {
       method: 'DELETE',

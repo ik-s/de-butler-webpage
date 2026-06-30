@@ -9,6 +9,8 @@ import { ActivitiesRepository } from './activitiesRepository.ts';
 import type { CreateActivityInput, UpdateActivityInput } from './activityTypes.ts';
 
 const activityImagePrefix = '/uploads/activities/';
+const maxImageUploadBytes = 2 * 1024 * 1024;
+const maxImageUploadBase64Length = Math.ceil(maxImageUploadBytes / 3) * 4;
 
 type ActivitiesRouterOptions = {
   activitiesUploadRoot?: string;
@@ -84,12 +86,45 @@ function requireUploadRoot(uploadRoot: string | undefined): string {
 function safeUploadBaseName(fileName: unknown): string {
   const rawName = typeof fileName === 'string' ? path.basename(fileName, path.extname(fileName)) : 'activity';
   const safeName = rawName
-    .replace(/[^a-zA-Z0-9가-힣._-]+/g, '-')
+    .replace(/[^\p{L}\p{N}_-]+/gu, '-')
     .replace(/-+/g, '-')
     .replace(/^[-.]+|[-.]+$/g, '')
     .slice(0, 70);
 
   return safeName || 'activity';
+}
+
+function hasImageSignature(mimeType: string, bytes: Buffer): boolean {
+  if (mimeType === 'image/jpeg') {
+    return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  }
+  if (mimeType === 'image/png') {
+    return bytes.length >= 8
+      && bytes[0] === 0x89
+      && bytes[1] === 0x50
+      && bytes[2] === 0x4e
+      && bytes[3] === 0x47
+      && bytes[4] === 0x0d
+      && bytes[5] === 0x0a
+      && bytes[6] === 0x1a
+      && bytes[7] === 0x0a;
+  }
+  if (mimeType === 'image/gif') {
+    return bytes.length >= 6
+      && (bytes.subarray(0, 6).equals(Buffer.from('GIF87a')) || bytes.subarray(0, 6).equals(Buffer.from('GIF89a')));
+  }
+  if (mimeType === 'image/webp') {
+    return bytes.length >= 12
+      && bytes.subarray(0, 4).equals(Buffer.from('RIFF'))
+      && bytes.subarray(8, 12).equals(Buffer.from('WEBP'));
+  }
+  if (mimeType === 'image/avif') {
+    return bytes.length >= 12
+      && bytes.subarray(4, 8).equals(Buffer.from('ftyp'))
+      && bytes.subarray(8, Math.min(bytes.length, 32)).includes(Buffer.from('avif'));
+  }
+
+  return false;
 }
 
 function parseImageUpload(body: unknown): { fileName: string; bytes: Buffer } {
@@ -106,10 +141,22 @@ function parseImageUpload(body: unknown): { fileName: string; bytes: Buffer } {
   if (typeof body.dataBase64 !== 'string' || body.dataBase64.length === 0) {
     throw new Error('dataBase64 is required');
   }
+  if (body.dataBase64.length > maxImageUploadBase64Length || body.dataBase64.length % 4 !== 0) {
+    throw new Error('image data exceeds 2 MB');
+  }
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(body.dataBase64)) {
+    throw new Error('dataBase64 must be valid base64');
+  }
 
   const bytes = Buffer.from(body.dataBase64, 'base64');
   if (bytes.length === 0) {
     throw new Error('image data is empty');
+  }
+  if (bytes.length > maxImageUploadBytes) {
+    throw new Error('image data exceeds 2 MB');
+  }
+  if (!hasImageSignature(mimeType, bytes)) {
+    throw new Error('image data does not match mimeType');
   }
 
   const fileName = `${safeUploadBaseName(body.fileName)}-${crypto.randomBytes(4).toString('hex')}${extension}`;
@@ -197,7 +244,7 @@ export function createActivitiesRouter(repository: ActivitiesRepository, options
       fs.mkdirSync(uploadRoot, { recursive: true });
 
       const upload = parseImageUpload(request.body);
-      fs.writeFileSync(path.join(uploadRoot, upload.fileName), upload.bytes);
+      fs.writeFileSync(path.join(uploadRoot, upload.fileName), upload.bytes, { flag: 'wx' });
 
       response.status(201).json({ imageUrl: `${activityImagePrefix}${upload.fileName}` });
     } catch (error) {

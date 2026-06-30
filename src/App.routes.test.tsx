@@ -5,9 +5,25 @@ import React from 'react';
 import { renderToString } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
 
-import App, { ActivityImageGrid } from './App.tsx';
+import App, { ActivityImageGrid, ActivityItem } from './App.tsx';
+import {
+  buildHomeEventColumns,
+  defaultEventRecords,
+  homeUpcomingItems,
+  homeWhatDoesItems,
+  mergeDefaultEventRecords,
+} from './lib/eventContent.ts';
 import { ActivityEditModal, ActivityForm } from './pages/Activities.tsx';
-import { EventForm, EventList } from './pages/Events.tsx';
+import type { EventRecord } from './lib/eventsApi.ts';
+import {
+  EventEditModal,
+  EventForm,
+  EventList,
+  UpcomingViewSelector,
+  paginateEvents,
+  selectUpcomingViewEvents,
+  splitUpcomingEvents,
+} from './pages/Events.tsx';
 
 function renderRoute(pathname: string): string {
   return renderToString(
@@ -108,11 +124,127 @@ describe('app routes', () => {
     assert.match(html, /UPCOMING/);
     assert.match(html, /class=\"mx-auto w-full max-w-7xl px-6 pt-12 md:px-10\"/);
     assert.doesNotMatch(html, /class=\"mx-auto w-full max-w-7xl px-6 py-12 md:px-10\"/);
-    assert.match(html, /class=\"mt-20 flex flex-wrap justify-center gap-x-12 gap-y-4 pb-5\"/);
-    assert.doesNotMatch(html, /class=\"pb-5 text-xl/);
-    assert.match(html, /De-Butler가 하는 일/);
+    assert.match(html, /class=\"mt-20 flex flex-wrap justify-center gap-x-12 gap-y-4 pb-[^"]+\"/);
+    assert.doesNotMatch(html, /class=\"pb-[^"]+ text-xl/);
+    assert.match(html, /주간 블록체인 기술 세미나 및 네트워킹/);
     assert.doesNotMatch(html, /Admin Controls/);
     assert.doesNotMatch(html, /Create Event/);
+  });
+
+  test('uses the main page event column contents as the events fallback content', () => {
+    const defaultWhatDoes = defaultEventRecords.filter((event) => event.category === 'WHAT DOES');
+    const defaultUpcoming = defaultEventRecords.filter((event) => event.category === 'UPCOMING');
+
+    assert.deepEqual(
+      defaultWhatDoes.map(({ title, date }) => ({ title, date })),
+      homeWhatDoesItems.map(({ title, date }) => ({ title, date })),
+    );
+    assert.deepEqual(
+      defaultUpcoming.map(({ title, date }) => ({ title, date })),
+      homeUpcomingItems.map(({ title, date }) => ({ title, date })),
+    );
+
+    const upcomingHtml = renderToString(
+      <EventList events={defaultUpcoming} session={null} onEdit={() => undefined} onDelete={() => undefined} />,
+    );
+
+    assert.match(upcomingHtml, /리크루팅/);
+    assert.match(upcomingHtml, /NOT CENT ANYMORE 부스 진행/);
+  });
+
+  test('keeps the main page event column contents visible with server events', () => {
+    const mergedEvents = mergeDefaultEventRecords([
+      {
+        id: 101,
+        title: homeUpcomingItems[0].title,
+        category: 'UPCOMING',
+        date: homeUpcomingItems[0].date,
+        description: null,
+        linkUrl: '/events/server-duplicate',
+        done: false,
+        createdAt: '2026-03-04T00:00:00.000Z',
+        updatedAt: '2026-03-04T00:00:00.000Z',
+      },
+      {
+        id: 102,
+        title: '서버 등록 이벤트',
+        category: 'UPCOMING',
+        date: '04.01',
+        description: null,
+        linkUrl: '/events/server-event',
+        done: false,
+        createdAt: '2026-04-01T00:00:00.000Z',
+        updatedAt: '2026-04-01T00:00:00.000Z',
+      },
+    ]);
+
+    const upcomingTitles = mergedEvents.filter((event) => event.category === 'UPCOMING').map((event) => event.title);
+
+    assert.deepEqual(upcomingTitles.slice(0, homeUpcomingItems.length), homeUpcomingItems.map((item) => item.title));
+    assert.equal(upcomingTitles.filter((title) => title === homeUpcomingItems[0].title).length, 1);
+    assert.ok(upcomingTitles.includes('서버 등록 이벤트'));
+  });
+
+  test('hides default event records after default edit or delete actions', () => {
+    const hiddenDefaultEvent = defaultEventRecords[0];
+    const mergedEvents = mergeDefaultEventRecords([], [hiddenDefaultEvent.id]);
+    const mergedTitles = mergedEvents.map((event) => event.title);
+
+    assert.ok(!mergedTitles.includes(hiddenDefaultEvent.title));
+    assert.ok(mergedTitles.includes(defaultEventRecords[1].title));
+  });
+
+  test('builds main page event columns from edited event records', () => {
+    const hiddenDefaultEvent = defaultEventRecords[0];
+    const editedEvent = {
+      ...hiddenDefaultEvent,
+      id: 201,
+      title: '수정된 메인 반영 이벤트',
+      date: '2026-07-01',
+      linkUrl: 'https://example.com/edited-event',
+      createdAt: '2026-07-01T00:00:00.000Z',
+      updatedAt: '2026-07-01T00:00:00.000Z',
+    };
+
+    const columns = buildHomeEventColumns([editedEvent], [hiddenDefaultEvent.id]);
+
+    assert.ok(!columns.whatDoes.some((event) => event.title === hiddenDefaultEvent.title));
+    const editedColumnEvent = columns.whatDoes.find((event) => event.title === editedEvent.title);
+    assert.equal(editedColumnEvent?.linkUrl, editedEvent.linkUrl);
+  });
+
+  test('limits main page event columns to six items each', () => {
+    const extraEvents: EventRecord[] = Array.from({ length: 8 }, (_, index) => ({
+      id: 300 + index,
+      title: `추가 일정 ${index + 1}`,
+      category: index % 2 === 0 ? 'WHAT DOES' : 'UPCOMING',
+      date: `2026-07-${String(index + 1).padStart(2, '0')}`,
+      description: null,
+      linkUrl: index % 2 === 0 ? `https://example.com/event-${index + 1}` : null,
+      done: false,
+      createdAt: '2026-07-01T00:00:00.000Z',
+      updatedAt: '2026-07-01T00:00:00.000Z',
+    }));
+
+    const columns = buildHomeEventColumns(extraEvents);
+
+    assert.equal(columns.whatDoes.length, 6);
+    assert.equal(columns.upcoming.length, 6);
+  });
+
+  test('main page what does items open link URLs in a new tab', () => {
+    const html = renderToString(
+      <ActivityItem
+        category="WHAT DOES"
+        title="Innovation Camp Hackathon"
+        date="2023-11-13"
+        linkUrl="https://example.com/hackathon"
+      />,
+    );
+
+    assert.match(html, /href="https:\/\/example.com\/hackathon"/);
+    assert.match(html, /target="_blank"/);
+    assert.match(html, /rel="noreferrer"/);
   });
 
   test('renders a post button before activity create controls after login', () => {
@@ -179,7 +311,7 @@ describe('app routes', () => {
     assert.doesNotMatch(eventsHtml, /Create Event/);
   });
 
-  test('event form uses category dropdown and link URL instead of location or image URL', () => {
+  test('event form uses calendar date, category dropdown, and link URL instead of location or image URL', () => {
     const html = renderToString(
       <EventForm
         form={{
@@ -188,6 +320,7 @@ describe('app routes', () => {
           date: '',
           description: '',
           linkUrl: '',
+          done: false,
         }}
         submitLabel="Create Event"
         onChange={() => undefined}
@@ -198,9 +331,119 @@ describe('app routes', () => {
     assert.match(html, /<select/);
     assert.match(html, /WHAT DOES/);
     assert.match(html, /UPCOMING/);
+    assert.match(html, /type="date"/);
     assert.match(html, /Link URL/);
     assert.doesNotMatch(html, /Location/);
     assert.doesNotMatch(html, /Image URL/);
+  });
+
+  test('event form keeps link URL styling while blocking upcoming posts', () => {
+    const html = renderToString(
+      <EventForm
+        form={{
+          title: 'Upcoming Session',
+          category: 'UPCOMING',
+          date: '2026.07.01',
+          description: '',
+          linkUrl: 'https://example.com/should-not-render',
+          done: true,
+        }}
+        submitLabel="Create Event"
+        onChange={() => undefined}
+        onSubmit={() => undefined}
+      />,
+    );
+
+    assert.match(html, /Link URL/);
+    assert.doesNotMatch(html, /disabled=""/);
+    assert.match(html, /readOnly=""/);
+    assert.match(html, /cursor-not-allowed/);
+    assert.match(html, /title="UPCOMING posts do not use a link URL."/);
+    assert.match(html, /Done/);
+    assert.match(html, /value="false"/);
+    assert.match(html, /value="true" selected=""/);
+    assert.doesNotMatch(html, /should-not-render/);
+  });
+
+  test('splits upcoming events into scheduled and done groups', () => {
+    const scheduledEvent = {
+      id: 10,
+      title: '리크루팅',
+      category: 'UPCOMING' as const,
+      date: '2026-03-04',
+      description: null,
+      linkUrl: null,
+      done: false,
+      createdAt: '2026-03-01T00:00:00.000Z',
+      updatedAt: '2026-03-01T00:00:00.000Z',
+    };
+    const doneEvent = {
+      ...scheduledEvent,
+      id: 11,
+      title: '완료된 부스 진행',
+      done: true,
+    };
+
+    const groups = splitUpcomingEvents([scheduledEvent, doneEvent]);
+
+    assert.deepEqual(groups.scheduled.map((event) => event.title), ['리크루팅']);
+    assert.deepEqual(groups.done.map((event) => event.title), ['완료된 부스 진행']);
+  });
+
+  test('selects one upcoming view at a time and paginates done events', () => {
+    const scheduledEvent = {
+      id: 10,
+      title: '진행될 리크루팅',
+      category: 'UPCOMING' as const,
+      date: '2026-03-04',
+      description: null,
+      linkUrl: null,
+      done: false,
+      createdAt: '2026-03-01T00:00:00.000Z',
+      updatedAt: '2026-03-01T00:00:00.000Z',
+    };
+    const doneEvents = Array.from({ length: 6 }, (_, index) => ({
+      ...scheduledEvent,
+      id: index + 20,
+      title: `지난 일정 ${index + 1}`,
+      done: true,
+    }));
+    const groups = splitUpcomingEvents([scheduledEvent, ...doneEvents]);
+
+    const scheduledView = selectUpcomingViewEvents(groups, 'scheduled', 1);
+    const doneView = selectUpcomingViewEvents(groups, 'done', 2);
+
+    assert.deepEqual(scheduledView.items.map((event) => event.title), ['진행될 리크루팅']);
+    assert.equal(scheduledView.totalPages, 1);
+    assert.deepEqual(doneView.items.map((event) => event.title), ['지난 일정 6']);
+    assert.equal(doneView.totalPages, 2);
+  });
+
+  test('paginates event lists five items at a time', () => {
+    const events = Array.from({ length: 12 }, (_, index) => ({
+      id: index + 1,
+      title: `페이지 이벤트 ${index + 1}`,
+      category: 'WHAT DOES' as const,
+      date: `2026-08-${String(index + 1).padStart(2, '0')}`,
+      description: null,
+      linkUrl: null,
+      done: false,
+      createdAt: '2026-08-01T00:00:00.000Z',
+      updatedAt: '2026-08-01T00:00:00.000Z',
+    }));
+
+    const firstPage = paginateEvents(events, 1);
+    const thirdPage = paginateEvents(events, 3);
+
+    assert.equal(firstPage.totalPages, 3);
+    assert.deepEqual(firstPage.items.map((event) => event.title), [
+      '페이지 이벤트 1',
+      '페이지 이벤트 2',
+      '페이지 이벤트 3',
+      '페이지 이벤트 4',
+      '페이지 이벤트 5',
+    ]);
+    assert.deepEqual(thirdPage.items.map((event) => event.title), ['페이지 이벤트 11', '페이지 이벤트 12']);
   });
 
   test('activity edit form renders in a modal shell', () => {
@@ -216,6 +459,19 @@ describe('app routes', () => {
     assert.match(html, /Save Changes/);
   });
 
+  test('event edit form renders in a modal shell', () => {
+    const html = renderToString(
+      <EventEditModal title="Edit Event" onClose={() => undefined}>
+        <button type="button">Save Changes</button>
+      </EventEditModal>,
+    );
+
+    assert.match(html, /role="dialog"/);
+    assert.match(html, /aria-modal="true"/);
+    assert.match(html, /Edit Event/);
+    assert.match(html, /Save Changes/);
+  });
+
   test('event list hides edit and delete controls for visitors and shows them for admins', () => {
     const event = {
       id: 1,
@@ -224,6 +480,7 @@ describe('app routes', () => {
       date: '2026.04.06',
       description: 'Session notice.',
       linkUrl: 'https://example.com/session',
+      done: false,
       createdAt: '2026-04-01T00:00:00.000Z',
       updatedAt: '2026-04-01T00:00:00.000Z',
     };
@@ -233,7 +490,7 @@ describe('app routes', () => {
     const adminHtml = renderToString(
       <EventList
         events={[event]}
-        session={{ token: 'admin-token', username: 'De-Butelr' }}
+        session={{ token: 'admin-token', username: 'De-Butler' }}
         onEdit={() => undefined}
         onDelete={() => undefined}
       />,
@@ -242,6 +499,51 @@ describe('app routes', () => {
     assert.doesNotMatch(visitorHtml, /Edit/);
     assert.doesNotMatch(visitorHtml, /Delete/);
     assert.match(visitorHtml, /href="https:\/\/example.com\/session"/);
+    assert.match(visitorHtml, /target="_blank"/);
+    assert.match(visitorHtml, /rel="noreferrer"/);
+    assert.match(adminHtml, /Edit/);
+    assert.match(adminHtml, /Delete/);
+  });
+
+  test('upcoming tabs avoid divider lines and event items render as button cards', () => {
+    const event = {
+      id: 1,
+      title: '리크루팅',
+      category: 'UPCOMING' as const,
+      date: '03.04',
+      description: null,
+      linkUrl: null,
+      done: false,
+      createdAt: '2026-03-01T00:00:00.000Z',
+      updatedAt: '2026-03-01T00:00:00.000Z',
+    };
+    const tabsHtml = renderToString(
+      <UpcomingViewSelector activeView="scheduled" onChange={() => undefined} />,
+    );
+    const listHtml = renderToString(
+      <EventList events={[event]} session={null} onEdit={() => undefined} onDelete={() => undefined} />,
+    );
+
+    assert.match(tabsHtml, /진행될 일정/);
+    assert.match(tabsHtml, /지난 일정/);
+    assert.doesNotMatch(tabsHtml, /border-b/);
+    assert.doesNotMatch(listHtml, /divide-y/);
+    assert.doesNotMatch(listHtml, /border-t/);
+    assert.match(listHtml, /grid gap-5/);
+    assert.match(listHtml, /border border-gray-200/);
+    assert.match(listHtml, new RegExp('hover:bg-neon-green/10'));
+  });
+
+  test('event list shows admin controls for default main page event records', () => {
+    const adminHtml = renderToString(
+      <EventList
+        events={[defaultEventRecords[0]]}
+        session={{ token: 'admin-token', username: 'De-Butler' }}
+        onEdit={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
+
     assert.match(adminHtml, /Edit/);
     assert.match(adminHtml, /Delete/);
   });

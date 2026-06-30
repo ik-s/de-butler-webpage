@@ -9,6 +9,7 @@ type EventRow = {
   date: string;
   description: string | null;
   link_url: string | null;
+  done: number;
   created_at: string;
   updated_at: string;
 };
@@ -20,6 +21,7 @@ const eventColumns = `
   date,
   description,
   link_url,
+  done,
   created_at,
   updated_at
 `;
@@ -32,6 +34,7 @@ function toEventRecord(row: EventRow): EventRecord {
     date: row.date,
     description: row.description,
     linkUrl: row.link_url,
+    done: row.done === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -67,9 +70,9 @@ export class EventsRepository {
 
   create(input: CreateEventInput): EventRecord {
     const result = this.database
-      .prepare<[string, string, string, string | null, string | null]>(`
-        INSERT INTO events (title, category, date, description, link_url)
-        VALUES (?, ?, ?, ?, ?)
+      .prepare<[string, string, string, string | null, string | null, number]>(`
+        INSERT INTO events (title, category, date, description, link_url, done)
+        VALUES (?, ?, ?, ?, ?, ?)
       `)
       .run(
         input.title.trim(),
@@ -77,6 +80,7 @@ export class EventsRepository {
         input.date.trim(),
         normalizeOptionalText(input.description),
         normalizeOptionalText(input.linkUrl),
+        input.done ? 1 : 0,
       );
 
     return this.findById(Number(result.lastInsertRowid)) as EventRecord;
@@ -95,10 +99,11 @@ export class EventsRepository {
       description:
         input.description === undefined ? existing.description : normalizeOptionalText(input.description),
       linkUrl: input.linkUrl === undefined ? existing.linkUrl : normalizeOptionalText(input.linkUrl),
+      done: input.done === undefined ? existing.done : input.done,
     };
 
     this.database
-      .prepare<[string, string, string, string | null, string | null, number]>(`
+      .prepare<[string, string, string, string | null, string | null, number, number]>(`
         UPDATE events
         SET
           title = ?,
@@ -106,10 +111,11 @@ export class EventsRepository {
           date = ?,
           description = ?,
           link_url = ?,
+          done = ?,
           updated_at = datetime('now')
         WHERE id = ?
       `)
-      .run(next.title, next.category, next.date, next.description, next.linkUrl, id);
+      .run(next.title, next.category, next.date, next.description, next.linkUrl, next.done ? 1 : 0, id);
 
     return this.findById(id);
   }

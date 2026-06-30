@@ -32,6 +32,18 @@ function parseCategory(value: unknown): EventCategory {
   throw new Error('category must be WHAT DOES or UPCOMING');
 }
 
+function parseDone(value: unknown): boolean {
+  if (value === undefined || value === null || value === '') {
+    return false;
+  }
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  throw new Error('done must be true or false');
+}
+
 function parseId(request: Request, response: Response): number | null {
   const id = Number(request.params.id);
   if (!Number.isInteger(id) || id <= 0) {
@@ -53,6 +65,7 @@ function parseCreateInput(body: unknown): CreateEventInput {
     date: requireText(body.date, 'date'),
     description: textField(body.description),
     linkUrl: textField(body.linkUrl),
+    done: parseDone(body.done),
   };
 }
 
@@ -76,6 +89,9 @@ function parseUpdateInput(body: unknown): UpdateEventInput {
   }
   if ('linkUrl' in body) {
     input.linkUrl = textField(body.linkUrl) ?? null;
+  }
+  if ('done' in body) {
+    input.done = parseDone(body.done);
   }
 
   return input;
