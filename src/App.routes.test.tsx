@@ -1,14 +1,16 @@
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { describe, test } from 'node:test';
 
 import React from 'react';
 import { renderToString } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
 
-import App, { ActivityImageGrid, ActivityItem, formatHomeUpcomingDate } from './App.tsx';
+import App, { ActivityImageGrid, ActivityItem, formatHomeUpcomingDate, shouldShowHeaderOnScroll } from './App.tsx';
 import { buildHomeEventColumns } from './lib/eventContent.ts';
 import { ActivityEditModal, ActivityForm, activityAdminErrorMessage } from './pages/Activities.tsx';
 import About from './pages/About.tsx';
+import Hackathon from './pages/Hackathon.tsx';
 import { ApiError } from './lib/apiError.ts';
 import type { EventRecord } from './lib/eventsApi.ts';
 import {
@@ -60,6 +62,7 @@ describe('app routes', () => {
     const html = renderRoute('/');
 
     assert.match(html, /href="\/activities"/);
+    assert.match(html, /href="\/hackathon"/);
     assert.match(html, /href="\/login"/);
     assert.match(
       html,
@@ -73,7 +76,7 @@ describe('app routes', () => {
 
     assert.match(homeHtml, /href="\/#contact"/);
 
-    for (const pathname of ['/about', '/activities', '/events', '/login']) {
+    for (const pathname of ['/about', '/activities', '/events', '/hackathon', '/login']) {
       const html = renderRoute(pathname);
 
       assert.doesNotMatch(html, /href="\/#contact"/);
@@ -87,14 +90,45 @@ describe('app routes', () => {
     assert.match(html, /aria-label="Open menu"/);
     assert.match(html, /aria-controls="mobile-menu"/);
     assert.match(html, /aria-expanded="false"/);
+    assert.match(html, /transition-transform duration-300 ease-out/);
     assert.match(html, /id="mobile-menu"/);
     assert.match(html, /href="\/about"/);
     assert.match(html, /href="\/activities"/);
     assert.match(html, /href="\/events"/);
+    assert.match(html, /href="\/hackathon"/);
     assert.match(
       html,
       /class="bg-black px-4 py-3 text-sm font-extrabold text-white transition-colors hover:bg-neon-green hover:text-black">Join Us<\/button>/,
     );
+  });
+
+  test('renders the hackathon portfolio page as matching archive and coming soon features', () => {
+    const html = renderRoute('/hackathon');
+    const pageHtml = renderToString(<Hackathon />);
+
+    assert.match(html, /DE-BUTHON 2025/);
+    assert.match(html, /Coming Soon/);
+    assert.match(html, /src="\/hackathon\/de-buthon-2025.webp"/);
+    assert.match(html, /src="\/hackathon\/de-buthon-2026.png"/);
+    assert.match(html, /2026 Hackathon/);
+    assert.match(html, /href="https:\/\/www\.hankyung\.com\/article\/202503244674O"/);
+    assert.match(html, /자세히 보기/);
+    assert.equal(pageHtml.match(/<article/g)?.length ?? 0, 2);
+    assert.equal(pageHtml.match(/<img/g)?.length ?? 0, 2);
+    assert.match(pageHtml, /font-mono text-sm font-bold/);
+    assert.doesNotMatch(pageHtml, /aria-label="2026 Hackathon image placeholder"/);
+    assert.doesNotMatch(pageHtml, /De-Butler Portfolio/);
+    assert.doesNotMatch(pageHtml, /mb-10 border-b border-black/);
+    assert.match(pageHtml, /text-center/);
+    assert.ok(existsSync('public/hackathon/de-buthon-2025.webp'));
+    assert.ok(existsSync('public/hackathon/de-buthon-2026.png'));
+  });
+
+  test('header visibility follows scroll direction', () => {
+    assert.equal(shouldShowHeaderOnScroll(0, 120, false), false);
+    assert.equal(shouldShowHeaderOnScroll(120, 80, false), true);
+    assert.equal(shouldShowHeaderOnScroll(120, 0, false), true);
+    assert.equal(shouldShowHeaderOnScroll(80, 120, true), true);
   });
 
   test('formats main page upcoming dates with month and day only', () => {

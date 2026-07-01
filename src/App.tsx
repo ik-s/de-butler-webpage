@@ -11,6 +11,7 @@ import { buildHomeEventColumns } from "./lib/eventContent";
 import Activities from "./pages/Activities";
 import About from "./pages/About";
 import Events from "./pages/Events";
+import Hackathon from "./pages/Hackathon";
 import Login from "./pages/Login";
 
 const SectionHeader = ({ title, to }: { title: string; to?: string }) => (
@@ -35,6 +36,14 @@ const EventDetailPlaceholder = () => (
 
 export function formatHomeUpcomingDate(date: string): string {
   return date.replace(/\b\d{4}-(\d{2})-(\d{2})\b/g, "$1.$2");
+}
+
+export function shouldShowHeaderOnScroll(previousY: number, currentY: number, isMobileMenuOpen: boolean): boolean {
+  if (isMobileMenuOpen || currentY <= 0) {
+    return true;
+  }
+
+  return currentY < previousY;
 }
 
 export const ActivityItem = ({
@@ -373,6 +382,8 @@ export default function App() {
   const { pathname } = useLocation();
   const showHeaderContact = pathname === "/";
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [isHeaderVisible, setIsHeaderVisible] = React.useState(true);
+  const lastScrollYRef = React.useRef(0);
   const [adminSession, setAdminSession] = React.useState<AdminSession | null>(() => loadStoredAdminSession());
 
   React.useEffect(() => {
@@ -389,6 +400,23 @@ export default function App() {
   React.useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [pathname]);
+
+  React.useEffect(() => {
+    lastScrollYRef.current = Math.max(window.scrollY, 0);
+
+    if (isMobileMenuOpen) {
+      setIsHeaderVisible(true);
+    }
+
+    const handleScroll = () => {
+      const currentY = Math.max(window.scrollY, 0);
+      setIsHeaderVisible(shouldShowHeaderOnScroll(lastScrollYRef.current, currentY, isMobileMenuOpen));
+      lastScrollYRef.current = currentY;
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [isMobileMenuOpen]);
 
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
@@ -411,7 +439,7 @@ export default function App() {
     <div className="min-h-screen flex flex-col bg-neutral-50 font-sans">
       <ScrollToTop />
       {/* Navigation */}
-      <nav className="sticky top-0 z-[80] border-b border-black/10 bg-white/95 shadow-[0_8px_24px_rgba(0,0,0,0.06)] backdrop-blur">
+      <nav className={`sticky top-0 z-[80] border-b border-black/10 bg-white/95 shadow-[0_8px_24px_rgba(0,0,0,0.06)] backdrop-blur transition-transform duration-300 ease-out will-change-transform ${isHeaderVisible ? "translate-y-0" : "-translate-y-full"}`}>
         <div className="mx-auto flex h-20 w-full max-w-7xl items-center gap-8 px-6 md:px-10 lg:h-24 lg:gap-14">
           <div className="flex flex-col items-start">
             <Link to="/" className="group mb-1 flex items-center gap-3">
@@ -426,6 +454,7 @@ export default function App() {
             <Link to="/about" className="hover-underline">About</Link>
             <Link to="/activities" className="hover-underline">Activities</Link>
             <Link to="/events" className="hover-underline">Events</Link>
+            <Link to="/hackathon" className="hover-underline">Hackathon</Link>
             {showHeaderContact && <a href="/#contact" className="hover-underline">Contact</a>}
           </div>
 
@@ -484,6 +513,7 @@ export default function App() {
             <Link to="/about" onClick={closeMobileMenu} className="border-b border-gray-100 py-4">About</Link>
             <Link to="/activities" onClick={closeMobileMenu} className="border-b border-gray-100 py-4">Activities</Link>
             <Link to="/events" onClick={closeMobileMenu} className="border-b border-gray-100 py-4">Events</Link>
+            <Link to="/hackathon" onClick={closeMobileMenu} className="border-b border-gray-100 py-4">Hackathon</Link>
             {showHeaderContact && <a href="/#contact" onClick={closeMobileMenu} className="border-b border-gray-100 py-4">Contact</a>}
           </div>
           <div className="mt-5 grid grid-cols-2 gap-3">
@@ -529,6 +559,7 @@ export default function App() {
         <Route path="/activities" element={<Activities />} />
         <Route path="/events" element={<Events />} />
         <Route path="/events/:eventSlug" element={<EventDetailPlaceholder />} />
+        <Route path="/hackathon" element={<Hackathon />} />
         <Route path="/login" element={<Login />} />
       </Routes>
 
