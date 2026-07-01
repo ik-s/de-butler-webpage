@@ -8,6 +8,7 @@ import { MemoryRouter } from 'react-router-dom';
 import App, { ActivityImageGrid, ActivityItem, formatHomeUpcomingDate } from './App.tsx';
 import { buildHomeEventColumns } from './lib/eventContent.ts';
 import { ActivityEditModal, ActivityForm, activityAdminErrorMessage } from './pages/Activities.tsx';
+import About from './pages/About.tsx';
 import { ApiError } from './lib/apiError.ts';
 import type { EventRecord } from './lib/eventsApi.ts';
 import {
@@ -83,6 +84,19 @@ describe('app routes', () => {
     assert.equal(formatHomeUpcomingDate('2026-07-01'), '07.01');
     assert.equal(formatHomeUpcomingDate('2026-12-31'), '12.31');
     assert.equal(formatHomeUpcomingDate('04.01'), '04.01');
+  });
+
+  test('main page about summary cards use the vision hover bar effect', () => {
+    const html = renderRoute('/');
+
+    assert.equal(html.match(/group-hover:scale-y-100/g)?.length ?? 0, 3);
+  });
+
+  test('about what we do cards are static content without hover color or modal trigger', () => {
+    const html = renderToString(<About />);
+
+    assert.equal(html.match(/type="button"/g)?.length ?? 0, 0);
+    assert.doesNotMatch(html, /hover:bg-neon-green hover:text-black hover:border-neon-green/);
   });
 
   test('renders a dedicated login page', () => {

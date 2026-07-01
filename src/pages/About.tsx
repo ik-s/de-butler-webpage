@@ -1,31 +1,22 @@
-import React from "react";
 import { motion } from "motion/react";
 import { ArrowRight } from "lucide-react";
 
 const whatWeDoItems = [
     {
         title: "LEARN",
-        step: "STEP #1",
         desc: "블록체인과 Web3를 처음 접하는 학우도 기초 개념부터 차근차근 배워갑니다.",
-        image: "/what-we-do-learn.jpg",
     },
     {
         title: "RESEARCH",
-        step: "STEP #2",
         desc: "기술, 프로젝트, 시장 흐름을 함께 분석하며 블록체인을 바라보는 관점을 넓혀갑니다.",
-        image: "/what-we-do-research.jpg",
     },
     {
         title: "BUILD",
-        step: "STEP #3",
         desc: "스터디와 리서치를 바탕으로 프로젝트, 해커톤, 외부 활동을 통해 실제 결과물을 만들어갑니다.",
-        image: "/what-we-do-build.jpg",
     },
 ];
 
 export default function About() {
-    const [selectedItem, setSelectedItem] = React.useState<(typeof whatWeDoItems)[number] | null>(null);
-
     return (
         <main className="flex-grow w-full pb-12 pt-24 min-h-screen relative overflow-hidden">
             <div className="max-w-7xl mx-auto px-6 relative z-10">
@@ -84,59 +75,17 @@ export default function About() {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         {whatWeDoItems.map((item) => (
-                            <button
+                            <div
                                 key={item.title}
-                                type="button"
-                                onClick={() => setSelectedItem(item)}
-                                className="border border-black p-6 bg-black text-left text-white hover:bg-neon-green hover:text-black hover:border-neon-green transition-all duration-300"
+                                className="border border-black p-6 bg-black text-left text-white"
                             >
                                 <h3 className="text-xl font-black uppercase italic mb-2">{item.title}</h3>
                                 <p className="text-sm leading-relaxed">{item.desc}</p>
-                            </button>
+                            </div>
                         ))}
                     </div>
                 </motion.div>
             </div>
-
-            {selectedItem && (
-                <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6"
-                    onClick={() => setSelectedItem(null)}
-                >
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.96 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="w-full max-w-2xl bg-white p-6 shadow-2xl"
-                        onClick={(event) => event.stopPropagation()}
-                    >
-                        <div className="mb-6 flex items-start justify-between gap-8">
-                            <div>
-                                <p className="text-xs font-black uppercase tracking-[0.2em] text-neon-green">{selectedItem.step}</p>
-                                <h3 className="text-2xl font-black uppercase tracking-tight">{selectedItem.title}</h3>
-                                <p className="mt-3 max-w-xl text-sm leading-relaxed text-gray-600">{selectedItem.desc}</p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setSelectedItem(null)}
-                                className="h-10 w-10 rounded-full bg-black text-white"
-                                aria-label="Close"
-                            >
-                                X
-                            </button>
-                        </div>
-                        <div className="h-72 bg-gray-100 md:h-80">
-                            <img
-                                src={selectedItem.image}
-                                alt={`${selectedItem.title} activity`}
-                                className="h-full w-full object-cover"
-                                onError={(event) => {
-                                    event.currentTarget.style.display = "none";
-                                }}
-                            />
-                        </div>
-                    </motion.div>
-                </div>
-            )}
 
             {/* Background Elements */}
             <div className="absolute top-40 right-10 w-96 h-96 bg-neon-green/10 rounded-full blur-[100px] pointer-events-none" />

@@ -164,7 +164,8 @@ const AboutSummary = () => (
             { title: "Connection", desc: "교내외 학우와 산업계 전문가를 잇는 블록체인 허브를 만듭니다." },
             { title: "Experience", desc: "세미나와 스터디를 넘어 실제 동작하는 DApp과 인프라를 구축합니다." },
           ].map((item) => (
-            <div key={item.title} className="min-h-52 rounded-lg border border-gray-100 bg-gray-50 p-8">
+            <div key={item.title} className="group relative min-h-52 rounded-lg border border-gray-100 bg-gray-50 p-8">
+              <div className="absolute top-0 left-0 w-2 h-full bg-neon-green transform origin-left scale-y-0 group-hover:scale-y-100 transition-transform duration-500" />
               <h3 className="mb-8 text-lg font-black uppercase tracking-tight text-black">{item.title}</h3>
               <p className="text-base leading-relaxed text-slate-600">{item.desc}</p>
             </div>
