@@ -10,7 +10,7 @@ import { ActivitiesRepository } from './activitiesRepository.ts';
 import type { CreateActivityInput, UpdateActivityInput } from './activityTypes.ts';
 
 const activityImagePrefix = '/uploads/activities/';
-const maxImageUploadBytes = 2 * 1024 * 1024;
+const maxImageUploadBytes = 25 * 1024 * 1024;
 const maxImageUploadBase64Length = Math.ceil(maxImageUploadBytes / 3) * 4;
 
 type ActivitiesRouterOptions = {
@@ -143,7 +143,7 @@ function parseImageUpload(body: unknown): { baseName: string; bytes: Buffer } {
     throw new Error('dataBase64 is required');
   }
   if (body.dataBase64.length > maxImageUploadBase64Length || body.dataBase64.length % 4 !== 0) {
-    throw new Error('image data exceeds 2 MB');
+    throw new Error('image data exceeds 25 MB');
   }
   if (!/^[A-Za-z0-9+/]+={0,2}$/.test(body.dataBase64)) {
     throw new Error('dataBase64 must be valid base64');
@@ -154,7 +154,7 @@ function parseImageUpload(body: unknown): { baseName: string; bytes: Buffer } {
     throw new Error('image data is empty');
   }
   if (bytes.length > maxImageUploadBytes) {
-    throw new Error('image data exceeds 2 MB');
+    throw new Error('image data exceeds 25 MB');
   }
   if (!hasImageSignature(mimeType, bytes)) {
     throw new Error('image data does not match mimeType');

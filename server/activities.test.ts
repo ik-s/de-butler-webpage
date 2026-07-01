@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -186,6 +187,36 @@ describe('activities API', () => {
     assert.equal(storedBytes.subarray(8, 12).toString('ascii'), 'WEBP');
 
     await rm(storedPath, { force: true });
+  });
+
+  test('accepts uploaded activity images above the previous 2 MB limit', async () => {
+    const width = 1100;
+    const height = 1100;
+    const largePngBase64 = (await sharp(crypto.randomBytes(width * height * 3), {
+      raw: { width, height, channels: 3 },
+    }).png().toBuffer()).toString('base64');
+
+    assert.ok(Buffer.byteLength(largePngBase64, 'base64') > 2 * 1024 * 1024);
+
+    const uploadResult = await request<Record<string, unknown>>(baseUrl, '/api/activities/images', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        fileName: 'large-session.png',
+        mimeType: 'image/png',
+        dataBase64: largePngBase64,
+      }),
+    });
+
+    assert.equal(uploadResult.status, 201);
+    assert.match(String(uploadResult.body.imageUrl), /^\/uploads\/activities\/large-session-[a-f0-9]+\.webp$/);
+
+    await rm(path.join(
+      tempDir,
+      'uploads',
+      'activities',
+      path.basename(String(uploadResult.body.imageUrl)),
+    ), { force: true });
   });
 
   test('lists activities by newest date first instead of sort order', async () => {

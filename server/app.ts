@@ -36,7 +36,7 @@ export function createApp(options: AppOptions = {}): Express {
 
   fs.mkdirSync(activitiesUploadRoot, { recursive: true });
 
-  app.use(express.json({ limit: '3mb' }));
+  app.use(express.json({ limit: '35mb' }));
   app.use((error: unknown, _request: Request, response: Response, next: NextFunction) => {
     if (isRequestEntityTooLarge(error)) {
       response.status(413).json({ error: 'Request body too large' });

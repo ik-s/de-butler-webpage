@@ -7,7 +7,8 @@ import { MemoryRouter } from 'react-router-dom';
 
 import App, { ActivityImageGrid, ActivityItem, formatHomeUpcomingDate } from './App.tsx';
 import { buildHomeEventColumns } from './lib/eventContent.ts';
-import { ActivityEditModal, ActivityForm } from './pages/Activities.tsx';
+import { ActivityEditModal, ActivityForm, activityAdminErrorMessage } from './pages/Activities.tsx';
+import { ApiError } from './lib/apiError.ts';
 import type { EventRecord } from './lib/eventsApi.ts';
 import {
   EventEditModal,
@@ -268,6 +269,15 @@ describe('app routes', () => {
     assert.match(html, /Current selected image/);
     assert.ok(html.includes('src="/uploads/activities/session.jpg"'));
     assert.match(html, /Keep this image unless you choose a new file/);
+  });
+
+  test('activity admin errors preserve useful upload failure messages', () => {
+    assert.equal(
+      activityAdminErrorMessage(new ApiError('Image must be 25 MB or smaller', 400), 'Activity create failed.'),
+      'Image must be 25 MB or smaller',
+    );
+    assert.equal(activityAdminErrorMessage(new Error('Failed to read image file'), 'Activity create failed.'), 'Failed to read image file');
+    assert.equal(activityAdminErrorMessage('unknown', 'Activity create failed.'), 'Activity create failed.');
   });
 
   test('renders a post button before event create controls after login', () => {

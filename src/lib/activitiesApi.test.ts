@@ -6,6 +6,7 @@ import {
   deleteActivity,
   fetchActivities,
   loginAdmin,
+  maxActivityImageUploadBytes,
   updateActivity,
   uploadActivityImageData,
 } from './activitiesApi.ts';
@@ -52,6 +53,10 @@ describe('fetchActivities', () => {
 });
 
 describe('admin activity API client', () => {
+  test('allows common camera images larger than the previous 2 MB limit', () => {
+    assert.ok(maxActivityImageUploadBytes >= 17_256_336);
+  });
+
   test('logs in with admin credentials', async () => {
     globalThis.fetch = async (input, init) => {
       assert.equal(String(input), '/api/admin/login');
@@ -129,6 +134,22 @@ describe('admin activity API client', () => {
         ['/api/activities/1', 'PATCH', 'Bearer admin-token'],
         ['/api/activities/1', 'DELETE', 'Bearer admin-token'],
       ],
+    );
+  });
+
+  test('uses backend error messages for failed image uploads', async () => {
+    globalThis.fetch = async () => new Response(
+      JSON.stringify({ error: 'image data could not be optimized' }),
+      { status: 400, headers: { 'content-type': 'application/json' } },
+    );
+
+    await assert.rejects(
+      uploadActivityImageData('admin-token', {
+        fileName: 'broken.jpg',
+        mimeType: 'image/jpeg',
+        dataBase64: 'abcd',
+      }),
+      /image data could not be optimized/,
     );
   });
 });

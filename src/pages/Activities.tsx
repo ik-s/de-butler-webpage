@@ -62,6 +62,10 @@ function toActivityInput(form: ActivityFormState, imageUrl?: string | null): Act
   };
 }
 
+export function activityAdminErrorMessage(error: unknown, fallbackMessage: string): string {
+  return error instanceof Error && error.message ? error.message : fallbackMessage;
+}
+
 function Field({
   label,
   children,
@@ -272,7 +276,7 @@ export default function Activities() {
       return;
     }
 
-    setAdminMessage(fallbackMessage);
+    setAdminMessage(activityAdminErrorMessage(error, fallbackMessage));
   };
 
   const handleCreate = async () => {

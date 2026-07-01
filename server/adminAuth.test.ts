@@ -264,12 +264,12 @@ describe('admin authentication', () => {
       body: JSON.stringify({
         fileName: 'too-large.jpg',
         mimeType: 'image/jpeg',
-        dataBase64: Buffer.alloc(2 * 1024 * 1024 + 1, 0xff).toString('base64'),
+        dataBase64: Buffer.alloc(25 * 1024 * 1024 + 1, 0xff).toString('base64'),
       }),
     });
 
     assert.equal(upload.status, 400);
-    assert.equal(upload.body.error, 'image data exceeds 2 MB');
+    assert.equal(upload.body.error, 'image data exceeds 25 MB');
   });
 
   test('accepts an issued admin token after app recreation', async () => {

@@ -1,6 +1,6 @@
 import { ApiError } from "./apiError";
 
-export const maxActivityImageUploadBytes = 2 * 1024 * 1024;
+export const maxActivityImageUploadBytes = 25 * 1024 * 1024;
 
 export type Activity = {
   id: number;
@@ -49,9 +49,19 @@ function adminHeaders(token: string): Record<string, string> {
   };
 }
 
+async function readErrorBody(response: Response): Promise<string> {
+  try {
+    const body = (await response.json()) as { error?: unknown };
+    return typeof body.error === 'string' ? body.error : '';
+  } catch {
+    return '';
+  }
+}
+
 async function readJsonResponse<T>(response: Response, errorMessage: string): Promise<T> {
   if (!response.ok) {
-    throw new ApiError(errorMessage, response.status);
+    const body = await readErrorBody(response);
+    throw new ApiError(body || errorMessage, response.status);
   }
 
   return response.json() as Promise<T>;
@@ -82,7 +92,7 @@ export async function uploadActivityImageData(
 
 export async function uploadActivityImageFile(token: string, file: File): Promise<{ imageUrl: string }> {
   if (file.size > maxActivityImageUploadBytes) {
-    throw new ApiError('Image must be 2 MB or smaller', 400);
+    throw new ApiError('Image must be 25 MB or smaller', 400);
   }
 
   const dataBase64 = await new Promise<string>((resolve, reject) => {
