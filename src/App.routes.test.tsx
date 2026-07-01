@@ -80,6 +80,23 @@ describe('app routes', () => {
     }
   });
 
+  test('renders an accessible mobile menu shell in the sticky header', () => {
+    const html = renderRoute('/');
+
+    assert.match(html, /<nav class="sticky top-0 z-\[80\] border-b/);
+    assert.match(html, /aria-label="Open menu"/);
+    assert.match(html, /aria-controls="mobile-menu"/);
+    assert.match(html, /aria-expanded="false"/);
+    assert.match(html, /id="mobile-menu"/);
+    assert.match(html, /href="\/about"/);
+    assert.match(html, /href="\/activities"/);
+    assert.match(html, /href="\/events"/);
+    assert.match(
+      html,
+      /class="bg-black px-4 py-3 text-sm font-extrabold text-white transition-colors hover:bg-neon-green hover:text-black">Join Us<\/button>/,
+    );
+  });
+
   test('formats main page upcoming dates with month and day only', () => {
     assert.equal(formatHomeUpcomingDate('2026-07-01'), '07.01');
     assert.equal(formatHomeUpcomingDate('2026-12-31'), '12.31');

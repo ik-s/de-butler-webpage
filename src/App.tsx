@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "motion/react";
-import { Instagram, Linkedin, ArrowRight, Menu, User, LogOut } from "lucide-react";
+import { Instagram, Linkedin, ArrowRight, Menu, User, LogOut, X } from "lucide-react";
 import { Routes, Route, Link, useLocation } from "react-router-dom";
 import { fetchActivities } from "./lib/activitiesApi";
 import type { Activity, AdminSession } from "./lib/activitiesApi";
@@ -372,6 +372,7 @@ const footerSocialLinks = [
 export default function App() {
   const { pathname } = useLocation();
   const showHeaderContact = pathname === "/";
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [adminSession, setAdminSession] = React.useState<AdminSession | null>(() => loadStoredAdminSession());
 
   React.useEffect(() => {
@@ -385,20 +386,32 @@ export default function App() {
     };
   }, []);
 
+  React.useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
+
+  const closeMobileMenu = () => setIsMobileMenuOpen(false);
+
   const handleJoinClick = () => {
     window.alert("현재 지원 기간이 아닙니다.");
+  };
+
+  const handleMobileJoinClick = () => {
+    closeMobileMenu();
+    handleJoinClick();
   };
 
   const handleLogout = () => {
     clearAdminSession();
     setAdminSession(null);
+    closeMobileMenu();
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-neutral-50 font-sans">
       <ScrollToTop />
       {/* Navigation */}
-      <nav className="sticky top-0 z-50 bg-white">
+      <nav className="sticky top-0 z-[80] border-b border-black/10 bg-white/95 shadow-[0_8px_24px_rgba(0,0,0,0.06)] backdrop-blur">
         <div className="mx-auto flex h-20 w-full max-w-7xl items-center gap-8 px-6 md:px-10 lg:h-24 lg:gap-14">
           <div className="flex flex-col items-start">
             <Link to="/" className="group mb-1 flex items-center gap-3">
@@ -417,7 +430,20 @@ export default function App() {
           </div>
 
           <div className="ml-auto flex items-center gap-4">
-            <Menu className="h-7 w-7 cursor-pointer lg:hidden" />
+            <button
+              type="button"
+              onClick={() => setIsMobileMenuOpen((isOpen) => !isOpen)}
+              aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+              aria-controls="mobile-menu"
+              aria-expanded={isMobileMenuOpen}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-black/10 bg-white text-slate-900 transition-colors hover:bg-neon-green lg:hidden"
+            >
+              {isMobileMenuOpen ? (
+                <X className="h-6 w-6" aria-hidden="true" />
+              ) : (
+                <Menu className="h-6 w-6" aria-hidden="true" />
+              )}
+            </button>
             {adminSession ? (
               <>
                 <span className="hidden items-center gap-2 rounded-full bg-slate-100 px-5 py-4 text-sm font-extrabold text-slate-900 sm:flex">
@@ -445,6 +471,51 @@ export default function App() {
             <button
               onClick={handleJoinClick}
               className="hidden rounded-full bg-black px-8 py-4 text-sm font-extrabold text-white shadow-[0_16px_32px_rgba(0,0,0,0.18)] transition-colors hover:bg-neon-green hover:text-black sm:block"
+            >
+              Join Us
+            </button>
+          </div>
+        </div>
+        <div
+          id="mobile-menu"
+          className={`${isMobileMenuOpen ? "block" : "hidden"} border-t border-black/10 bg-white px-6 pb-6 pt-2 lg:hidden`}
+        >
+          <div className="flex flex-col text-base font-black uppercase tracking-tight text-slate-900">
+            <Link to="/about" onClick={closeMobileMenu} className="border-b border-gray-100 py-4">About</Link>
+            <Link to="/activities" onClick={closeMobileMenu} className="border-b border-gray-100 py-4">Activities</Link>
+            <Link to="/events" onClick={closeMobileMenu} className="border-b border-gray-100 py-4">Events</Link>
+            {showHeaderContact && <a href="/#contact" onClick={closeMobileMenu} className="border-b border-gray-100 py-4">Contact</a>}
+          </div>
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            {adminSession ? (
+              <>
+                <span className="col-span-2 flex items-center gap-2 border border-gray-200 px-4 py-3 text-sm font-extrabold text-slate-900">
+                  <User className="h-4 w-4 text-slate-700" aria-hidden="true" />
+                  {adminSession.username}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  aria-label="Logout admin account"
+                  className="col-span-2 flex items-center justify-center gap-2 bg-black px-4 py-3 text-sm font-extrabold text-white transition-colors hover:bg-neon-green hover:text-black"
+                >
+                  <LogOut className="h-4 w-4" aria-hidden="true" />
+                  Sign out
+                </button>
+              </>
+            ) : (
+              <Link
+                to="/login"
+                onClick={closeMobileMenu}
+                className="flex items-center justify-center bg-black px-4 py-3 text-sm font-extrabold text-white transition-colors hover:bg-neon-green hover:text-black"
+              >
+                Login
+              </Link>
+            )}
+            <button
+              type="button"
+              onClick={handleMobileJoinClick}
+              className={`${adminSession ? "col-span-2 " : ""}bg-black px-4 py-3 text-sm font-extrabold text-white transition-colors hover:bg-neon-green hover:text-black`}
             >
               Join Us
             </button>
