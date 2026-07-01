@@ -6,13 +6,7 @@ import { renderToString } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
 
 import App, { ActivityImageGrid, ActivityItem, formatHomeUpcomingDate } from './App.tsx';
-import {
-  buildHomeEventColumns,
-  defaultEventRecords,
-  homeUpcomingItems,
-  homeWhatDoesItems,
-  mergeDefaultEventRecords,
-} from './lib/eventContent.ts';
+import { buildHomeEventColumns } from './lib/eventContent.ts';
 import { ActivityEditModal, ActivityForm } from './pages/Activities.tsx';
 import type { EventRecord } from './lib/eventsApi.ts';
 import {
@@ -132,95 +126,62 @@ describe('app routes', () => {
     assert.doesNotMatch(html, /class=\"mx-auto w-full max-w-7xl px-6 py-12 md:px-10\"/);
     assert.match(html, /class=\"mt-20 flex flex-wrap justify-center gap-x-12 gap-y-4 pb-[^"]+\"/);
     assert.doesNotMatch(html, /class=\"pb-[^"]+ text-xl/);
-    assert.match(html, /주간 블록체인 기술 세미나 및 네트워킹/);
+    assert.doesNotMatch(html, /주간 블록체인 기술 세미나 및 네트워킹/);
     assert.doesNotMatch(html, /Admin Controls/);
     assert.doesNotMatch(html, /Create Event/);
   });
 
-  test('uses the main page event column contents as the events fallback content', () => {
-    const defaultWhatDoes = defaultEventRecords.filter((event) => event.category === 'WHAT DOES');
-    const defaultUpcoming = defaultEventRecords.filter((event) => event.category === 'UPCOMING');
-
-    assert.deepEqual(
-      defaultWhatDoes.map(({ title, date }) => ({ title, date })),
-      homeWhatDoesItems.map(({ title, date }) => ({ title, date })),
-    );
-    assert.deepEqual(
-      defaultUpcoming.map(({ title, date }) => ({ title, date })),
-      homeUpcomingItems.map(({ title, date }) => ({ title, date })),
-    );
-
-    const upcomingHtml = renderToString(
-      <EventList events={defaultUpcoming} session={null} onEdit={() => undefined} onDelete={() => undefined} />,
-    );
-
-    assert.match(upcomingHtml, /리크루팅/);
-    assert.match(upcomingHtml, /NOT CENT ANYMORE 부스 진행/);
+  test('does not render hard-coded default events when the backend returns no events', () => {
+    assert.deepEqual(buildHomeEventColumns([]), { whatDoes: [], upcoming: [] });
   });
 
-  test('keeps the main page event column contents visible with server events', () => {
-    const mergedEvents = mergeDefaultEventRecords([
+  test('builds main page event columns from backend records only', () => {
+    const events: EventRecord[] = [
       {
         id: 101,
-        title: homeUpcomingItems[0].title,
-        category: 'UPCOMING',
-        date: homeUpcomingItems[0].date,
+        title: '서버 WHAT DOES 이벤트',
+        category: 'WHAT DOES',
+        date: '2026-07-01',
         description: null,
-        linkUrl: '/events/server-duplicate',
+        linkUrl: 'https://example.com/server-event',
         done: false,
-        createdAt: '2026-03-04T00:00:00.000Z',
-        updatedAt: '2026-03-04T00:00:00.000Z',
+        createdAt: '2026-07-01T00:00:00.000Z',
+        updatedAt: '2026-07-01T00:00:00.000Z',
       },
       {
         id: 102,
-        title: '서버 등록 이벤트',
+        title: '서버 예정 이벤트',
         category: 'UPCOMING',
-        date: '04.01',
+        date: '2026-08-01',
         description: null,
-        linkUrl: '/events/server-event',
+        linkUrl: null,
         done: false,
-        createdAt: '2026-04-01T00:00:00.000Z',
-        updatedAt: '2026-04-01T00:00:00.000Z',
+        createdAt: '2026-08-01T00:00:00.000Z',
+        updatedAt: '2026-08-01T00:00:00.000Z',
       },
+      {
+        id: 103,
+        title: '완료된 일정',
+        category: 'UPCOMING',
+        date: '2026-03-04',
+        description: null,
+        linkUrl: null,
+        done: true,
+        createdAt: '2026-03-04T00:00:00.000Z',
+        updatedAt: '2026-03-04T00:00:00.000Z',
+      },
+    ];
+
+    const columns = buildHomeEventColumns(events);
+
+    assert.deepEqual(columns.whatDoes.map(({ title, linkUrl }) => ({ title, linkUrl })), [
+      { title: '서버 WHAT DOES 이벤트', linkUrl: 'https://example.com/server-event' },
     ]);
-
-    const upcomingTitles = mergedEvents.filter((event) => event.category === 'UPCOMING').map((event) => event.title);
-
-    assert.deepEqual(upcomingTitles.slice(0, homeUpcomingItems.length), homeUpcomingItems.map((item) => item.title));
-    assert.equal(upcomingTitles.filter((title) => title === homeUpcomingItems[0].title).length, 1);
-    assert.ok(upcomingTitles.includes('서버 등록 이벤트'));
-  });
-
-  test('hides default event records after default edit or delete actions', () => {
-    const hiddenDefaultEvent = defaultEventRecords[0];
-    const mergedEvents = mergeDefaultEventRecords([], [hiddenDefaultEvent.id]);
-    const mergedTitles = mergedEvents.map((event) => event.title);
-
-    assert.ok(!mergedTitles.includes(hiddenDefaultEvent.title));
-    assert.ok(mergedTitles.includes(defaultEventRecords[1].title));
-  });
-
-  test('builds main page event columns from edited event records', () => {
-    const hiddenDefaultEvent = defaultEventRecords[0];
-    const editedEvent = {
-      ...hiddenDefaultEvent,
-      id: 201,
-      title: '수정된 메인 반영 이벤트',
-      date: '2026-07-01',
-      linkUrl: 'https://example.com/edited-event',
-      createdAt: '2026-07-01T00:00:00.000Z',
-      updatedAt: '2026-07-01T00:00:00.000Z',
-    };
-
-    const columns = buildHomeEventColumns([editedEvent], [hiddenDefaultEvent.id]);
-
-    assert.ok(!columns.whatDoes.some((event) => event.title === hiddenDefaultEvent.title));
-    const editedColumnEvent = columns.whatDoes.find((event) => event.title === editedEvent.title);
-    assert.equal(editedColumnEvent?.linkUrl, editedEvent.linkUrl);
+    assert.deepEqual(columns.upcoming.map((event) => event.title), ['서버 예정 이벤트']);
   });
 
   test('limits main page event columns to six items each', () => {
-    const extraEvents: EventRecord[] = Array.from({ length: 8 }, (_, index) => ({
+    const extraEvents: EventRecord[] = Array.from({ length: 14 }, (_, index) => ({
       id: 300 + index,
       title: `추가 일정 ${index + 1}`,
       category: index % 2 === 0 ? 'WHAT DOES' : 'UPCOMING',
@@ -540,10 +501,22 @@ describe('app routes', () => {
     assert.match(listHtml, new RegExp('hover:bg-neon-green/10'));
   });
 
-  test('event list shows admin controls for default main page event records', () => {
+  test('event list shows admin controls for backend event records', () => {
     const adminHtml = renderToString(
       <EventList
-        events={[defaultEventRecords[0]]}
+        events={[
+          {
+            id: 1,
+            title: 'Backend Event',
+            category: 'WHAT DOES',
+            date: '2026-07-01',
+            description: null,
+            linkUrl: null,
+            done: false,
+            createdAt: '2026-07-01T00:00:00.000Z',
+            updatedAt: '2026-07-01T00:00:00.000Z',
+          },
+        ]}
         session={{ token: 'admin-token', username: 'De-Butler' }}
         onEdit={() => undefined}
         onDelete={() => undefined}

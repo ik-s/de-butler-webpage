@@ -8,12 +8,6 @@ import {
 } from "../lib/eventsApi";
 import { isUnauthorizedError } from "../lib/apiError";
 import { adminSessionChangedEvent, clearAdminSession, loadStoredAdminSession } from "../lib/adminSession";
-import {
-  isDefaultEventRecord,
-  loadHiddenDefaultEventIds,
-  mergeDefaultEventRecords,
-  saveHiddenDefaultEventIds,
-} from "../lib/eventContent";
 import type { AdminSession } from "../lib/activitiesApi";
 import type { EventCategory, EventInput, EventRecord } from "../lib/eventsApi";
 
@@ -407,9 +401,6 @@ export default function Events() {
   const [createForm, setCreateForm] = React.useState<EventFormState>(emptyForm);
   const [editingId, setEditingId] = React.useState<number | null>(null);
   const [editForm, setEditForm] = React.useState<EventFormState>(emptyForm);
-  const [hiddenDefaultEventIds, setHiddenDefaultEventIds] = React.useState<number[]>(() =>
-    loadHiddenDefaultEventIds(),
-  );
   const [whatDoesPage, setWhatDoesPage] = React.useState(1);
   const [doneUpcomingPage, setDoneUpcomingPage] = React.useState(1);
   const [activeUpcomingView, setActiveUpcomingView] = React.useState<UpcomingView>("scheduled");
@@ -483,16 +474,6 @@ export default function Events() {
     }
   };
 
-  const hideDefaultEvent = (event: EventRecord) => {
-    if (!isDefaultEventRecord(event) || hiddenDefaultEventIds.includes(event.id)) {
-      return;
-    }
-
-    const nextIds = [...hiddenDefaultEventIds, event.id];
-    setHiddenDefaultEventIds(nextIds);
-    saveHiddenDefaultEventIds(nextIds);
-  };
-
   const startEdit = (event: EventRecord) => {
     setAdminMessage("");
     setEditingId(event.id);
@@ -506,14 +487,6 @@ export default function Events() {
 
     setAdminMessage("");
     try {
-      if (isDefaultEventRecord(event)) {
-        await createEvent(session.token, toEventInput(editForm));
-        hideDefaultEvent(event);
-        setEditingId(null);
-        await loadEventList();
-        return;
-      }
-
       await updateEvent(session.token, event.id, toEventInput(editForm));
       setEditingId(null);
       await loadEventList();
@@ -528,14 +501,6 @@ export default function Events() {
     }
 
     setAdminMessage("");
-    if (isDefaultEventRecord(event)) {
-      hideDefaultEvent(event);
-      if (editingId === event.id) {
-        setEditingId(null);
-      }
-      return;
-    }
-
     try {
       await deleteEvent(session.token, event.id);
       if (editingId === event.id) {
@@ -547,12 +512,11 @@ export default function Events() {
     }
   };
 
-  const displayEvents = mergeDefaultEventRecords(events, hiddenDefaultEventIds);
-  const visibleEvents = displayEvents.filter((event) => event.category === activeTab);
+  const visibleEvents = events.filter((event) => event.category === activeTab);
   const upcomingGroups = splitUpcomingEvents(visibleEvents);
   const paginatedWhatDoes = paginateEvents(visibleEvents, whatDoesPage);
   const selectedUpcomingEvents = selectUpcomingViewEvents(upcomingGroups, activeUpcomingView, doneUpcomingPage);
-  const editingEvent = editingId ? displayEvents.find((event) => event.id === editingId) : null;
+  const editingEvent = editingId ? events.find((event) => event.id === editingId) : null;
 
   return (
     <main className="min-h-screen flex-grow bg-white pb-28 pt-24">

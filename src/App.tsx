@@ -7,7 +7,7 @@ import type { Activity, AdminSession } from "./lib/activitiesApi";
 import { adminSessionChangedEvent, clearAdminSession, loadStoredAdminSession } from "./lib/adminSession";
 import { fetchEvents } from "./lib/eventsApi";
 import type { EventRecord } from "./lib/eventsApi";
-import { buildHomeEventColumns, loadHiddenDefaultEventIds } from "./lib/eventContent";
+import { buildHomeEventColumns } from "./lib/eventContent";
 import Activities from "./pages/Activities";
 import About from "./pages/About";
 import Events from "./pages/Events";
@@ -215,13 +215,7 @@ function Home() {
   const [leftTab, setLeftTab] = React.useState<"what" | "upcoming">("what");
   const [homeActivities, setHomeActivities] = React.useState<Activity[]>([]);
   const [homeEvents, setHomeEvents] = React.useState<EventRecord[]>([]);
-  const [hiddenDefaultEventIds, setHiddenDefaultEventIds] = React.useState<number[]>(() =>
-    loadHiddenDefaultEventIds(),
-  );
-  const homeEventColumns = React.useMemo(
-    () => buildHomeEventColumns(homeEvents, hiddenDefaultEventIds),
-    [homeEvents, hiddenDefaultEventIds],
-  );
+  const homeEventColumns = React.useMemo(() => buildHomeEventColumns(homeEvents), [homeEvents]);
 
   React.useEffect(() => {
     let isActive = true;
@@ -245,8 +239,6 @@ function Home() {
 
   React.useEffect(() => {
     let isActive = true;
-
-    setHiddenDefaultEventIds(loadHiddenDefaultEventIds());
 
     fetchEvents()
       .then((items) => {
