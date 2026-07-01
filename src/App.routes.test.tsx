@@ -10,7 +10,7 @@ import App, { ActivityImageGrid, ActivityItem, formatHomeUpcomingDate, shouldSho
 import { buildHomeEventColumns } from './lib/eventContent.ts';
 import { ActivityEditModal, ActivityForm, activityAdminErrorMessage } from './pages/Activities.tsx';
 import About from './pages/About.tsx';
-import Hackathon from './pages/Hackathon.tsx';
+import { HackathonForm, HackathonList } from './pages/Hackathon.tsx';
 import { ApiError } from './lib/apiError.ts';
 import type { EventRecord } from './lib/eventsApi.ts';
 import {
@@ -103,8 +103,41 @@ describe('app routes', () => {
   });
 
   test('renders the hackathon portfolio page as matching archive and coming soon features', () => {
-    const html = renderRoute('/hackathon');
-    const pageHtml = renderToString(<Hackathon />);
+    const html = renderToString(
+      <HackathonList
+        cards={[
+          {
+            id: 1,
+            label: 'Hackathon Archive',
+            title: 'DE-BUTHON 2025',
+            meta: '2025.03 - Kwangwoon University',
+            imageUrl: '/hackathon/de-buthon-2025.webp',
+            imageFit: 'cover',
+            description: 'Archive description',
+            linkUrl: 'https://www.hankyung.com/article/202503244674O',
+            sortOrder: 10,
+            createdAt: '2026-07-01T00:00:00.000Z',
+            updatedAt: '2026-07-01T00:00:00.000Z',
+          },
+          {
+            id: 2,
+            label: 'Upcoming Hackathon',
+            title: '2026 Hackathon',
+            meta: 'Coming Soon',
+            imageUrl: '/hackathon/de-buthon-2026.png',
+            imageFit: 'contain',
+            description: 'Coming Soon',
+            linkUrl: null,
+            sortOrder: 20,
+            createdAt: '2026-07-01T00:00:00.000Z',
+            updatedAt: '2026-07-01T00:00:00.000Z',
+          },
+        ]}
+        session={null}
+        onEdit={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
 
     assert.match(html, /DE-BUTHON 2025/);
     assert.match(html, /Coming Soon/);
@@ -113,15 +146,47 @@ describe('app routes', () => {
     assert.match(html, /2026 Hackathon/);
     assert.match(html, /href="https:\/\/www\.hankyung\.com\/article\/202503244674O"/);
     assert.match(html, /자세히 보기/);
-    assert.equal(pageHtml.match(/<article/g)?.length ?? 0, 2);
-    assert.equal(pageHtml.match(/<img/g)?.length ?? 0, 2);
-    assert.match(pageHtml, /font-mono text-sm font-bold/);
-    assert.doesNotMatch(pageHtml, /aria-label="2026 Hackathon image placeholder"/);
-    assert.doesNotMatch(pageHtml, /De-Butler Portfolio/);
-    assert.doesNotMatch(pageHtml, /mb-10 border-b border-black/);
-    assert.match(pageHtml, /text-center/);
+    assert.equal(html.match(/<article/g)?.length ?? 0, 2);
+    assert.equal(html.match(/<img/g)?.length ?? 0, 2);
+    assert.match(html, /font-mono text-sm font-bold/);
+    assert.doesNotMatch(html, /aria-label="2026 Hackathon image placeholder"/);
+    assert.doesNotMatch(html, /De-Butler Portfolio/);
+    assert.doesNotMatch(html, /mb-10 border-b border-black/);
     assert.ok(existsSync('public/hackathon/de-buthon-2025.webp'));
     assert.ok(existsSync('public/hackathon/de-buthon-2026.png'));
+  });
+
+  test('renders hackathon admin controls after login', () => {
+    const html = withStoredAdminSession(() => renderRoute('/hackathon'));
+
+    assert.match(html, />POST</);
+    assert.doesNotMatch(html, /Create Hackathon/);
+  });
+
+  test('hackathon form edits card content and image behavior', () => {
+    const html = renderToString(
+      <HackathonForm
+        form={{
+          label: 'Hackathon Archive',
+          title: 'DE-BUTHON 2025',
+          meta: '2025.03 - Kwangwoon University',
+          imageUrl: '/hackathon/de-buthon-2025.webp',
+          imageFit: 'cover',
+          description: 'Archive description',
+          linkUrl: 'https://example.com/article',
+          sortOrder: '10',
+        }}
+        submitLabel="Create Hackathon"
+        onChange={() => undefined}
+        onSubmit={() => undefined}
+      />,
+    );
+
+    assert.match(html, /Image URL/);
+    assert.match(html, /Image Fit/);
+    assert.match(html, /Link URL/);
+    assert.match(html, /Sort Order/);
+    assert.match(html, /Create Hackathon/);
   });
 
   test('header visibility follows scroll direction', () => {

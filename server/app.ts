@@ -9,6 +9,8 @@ import { createActivitiesRouter } from './activitiesRoutes.ts';
 import { createDatabase } from './db.ts';
 import { EventsRepository } from './eventsRepository.ts';
 import { createEventsRouter } from './eventsRoutes.ts';
+import { HackathonsRepository } from './hackathonsRepository.ts';
+import { createHackathonsRouter } from './hackathonsRoutes.ts';
 import { syncUploadedActivities } from './uploadedActivities.ts';
 
 export type AppOptions = {
@@ -32,6 +34,7 @@ export function createApp(options: AppOptions = {}): Express {
   const activitiesUploadRoot = path.join(uploadRoot, 'activities');
   const activitiesRepository = new ActivitiesRepository(database);
   const eventsRepository = new EventsRepository(database);
+  const hackathonsRepository = new HackathonsRepository(database);
   const adminAuth = createAdminAuth();
 
   fs.mkdirSync(activitiesUploadRoot, { recursive: true });
@@ -67,6 +70,7 @@ export function createApp(options: AppOptions = {}): Express {
     }),
   );
   app.use('/api', createEventsRouter(eventsRepository, { requireAdmin: adminAuth.requireAdmin }));
+  app.use('/api', createHackathonsRouter(hackathonsRepository, { requireAdmin: adminAuth.requireAdmin }));
 
   app.locals.database = database;
 

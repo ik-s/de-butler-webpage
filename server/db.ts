@@ -20,6 +20,12 @@ export function createDatabase(options: DatabaseOptions = {}): Database {
 
   const database = new BetterSqlite3(dbPath);
   database.pragma('journal_mode = WAL');
+  const hadHackathonsTable = Boolean(
+    database
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'hackathons'")
+      .get(),
+  );
+
   database.exec(`
     CREATE TABLE IF NOT EXISTS events (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,7 +57,51 @@ export function createDatabase(options: DatabaseOptions = {}): Database {
 
     CREATE INDEX IF NOT EXISTS idx_activities_sort_order ON activities(sort_order);
     CREATE INDEX IF NOT EXISTS idx_activities_date ON activities(date);
+
+    CREATE TABLE IF NOT EXISTS hackathons (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      label TEXT NOT NULL,
+      title TEXT NOT NULL,
+      meta TEXT NOT NULL,
+      image_url TEXT,
+      image_fit TEXT NOT NULL DEFAULT 'cover',
+      description TEXT NOT NULL,
+      link_url TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_hackathons_sort_order ON hackathons(sort_order);
   `);
+
+  if (!hadHackathonsTable) {
+    const insertHackathon = database.prepare(`
+      INSERT INTO hackathons (label, title, meta, image_url, image_fit, description, link_url, sort_order)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    insertHackathon.run(
+      'Hackathon Archive',
+      'DE-BUTHON 2025',
+      '2025.03 - Kwangwoon University',
+      '/hackathon/de-buthon-2025.webp',
+      'cover',
+      '디버틀러에서 개최한 첫 해커톤입니다. 아이디어톤과 프로덕트톤을 동시에 운영하고 Axelar · Biconomy 등 파트너사들이 Special Track을 개설해 다채로운 빌딩의 장을 만들었습니다.',
+      'https://www.hankyung.com/article/202503244674O',
+      10,
+    );
+    insertHackathon.run(
+      'Upcoming Hackathon',
+      '2026 Hackathon',
+      'Coming Soon',
+      '/hackathon/de-buthon-2026.png',
+      'contain',
+      'Coming Soon',
+      null,
+      20,
+    );
+  }
 
   const eventColumns = database.prepare("PRAGMA table_info(events)").all() as Array<{ name: string }>;
   const eventColumnNames = new Set(eventColumns.map((column) => column.name));
